@@ -4,9 +4,14 @@ on:
   push:
   pull_request:
 
+# Supported platforms: macOS and Windows (BAR ships on Windows). No Linux target.
 jobs:
   license-audit:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]   # wheels bundle different native libraries per platform
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,21 +20,23 @@ jobs:
       - name: Install with every public extra
         run: |
           python -m pip install --upgrade pip
-          pip install ".[all]"
-      - name: License audit (fails on GPL / AGPL / LGPL / unknown / banned)
-        run: python tools/license_audit.py --markdown licenses-report.md
+          pip install ".[all,site]"
+      - name: License audit (packages + bundled native libraries)
+        run: python tools/license_audit.py --markdown licenses-report-${{ matrix.os }}.md
       - uses: actions/upload-artifact@v4
         with:
-          name: licenses-report
-          path: licenses-report.md
+          name: licenses-report-${{ matrix.os }}
+          path: licenses-report-${{ matrix.os }}.md
 
   test:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest]   # macOS only (no Linux target)
+        os: [macos-latest, windows-latest]
         python: ["3.11", "3.12"]
+    env:
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,11 +45,17 @@ jobs:
       - name: System tools (macOS)
         if: runner.os == 'macOS'
         run: brew install tesseract
+      - name: System tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install tesseract -y --no-progress
+          echo "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[all]"
+          pip install -e ".[all,site]"
       - name: Doctor (required components)
         run: pdfcore doctor
       - name: Tests
-        run: pytest -m "not slow"
+        run: pytest -m "not slow and not network" -p no:cacheprovider
