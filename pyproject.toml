@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pdf-studio"
+version = "0.1.0"
+description = "Permissively licensed PDF toolkit: organize, stamp, redact, markup, compare, OCR, forms, optimize, typeset and drawing-set tools."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md"]
+requires-python = ">=3.11"
+authors = [{ name = "Owen Smith" }]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Office/Business",
+  "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+dependencies = [
+  "pypdfium2>=4.30",
+  "pikepdf>=9.0",
+  "pdfplumber>=0.11",
+  "pypdf>=5.0",
+  "reportlab>=4.2",
+  "pillow>=10.4",
+  "fonttools>=4.50",
+  "pyyaml>=6.0",
+  "openpyxl>=3.1",
+  "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+ocr = ["pytesseract>=0.3.10"]
+sign = ["pyHanko>=0.25", "pyhanko-certvalidator>=0.26"]
+cad = ["ezdxf>=1.3", "matplotlib>=3.8"]
+typeset = ["typst>=0.12"]
+html = ["weasyprint>=62"]
+tables = ["camelot-py>=1.0"]
+docling = ["docling>=2.0"]
+dev = ["pytest>=8", "pip-licenses>=5"]
+all = [
+  "pdf-studio[ocr,sign,cad,typeset,dev]",
+]
+
+[project.scripts]
+pdfcore = "pdfcore.cli:main"
+
+[project.entry-points."pdfcore.backends"]
+builtin = "pdfcore.engines.builtin:register"
+
+[project.urls]
+Source = "https://github.com/thestealthgoat/pdf-studio"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pdfcore"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"templates" = "pdfcore/_templates"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "external: needs an external program (tesseract, typst, verapdf, soffice)",
+  "slow: slow test",
+]
