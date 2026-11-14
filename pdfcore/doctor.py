@@ -104,9 +104,17 @@ def collect() -> list[Item]:
         from pdfcore.licenses import failures
 
         bad = failures()
+        local = _ver("pdf-studio-local") is not None
+        if bad and local:
+            items.append(Item("licenses", "dependency audit", "warn",
+                              "LOCAL EDITION environment (AGPL engines present: " + ", ".join(r.name for r in bad)[:120]
+                              + ") — fine on this machine, never ship it", False))
+            raise StopIteration
         items.append(Item("licenses", "dependency audit", "ok" if not bad else "missing",
                           "all permissive" if not bad else "; ".join(f"{r.name} ({r.reason})" for r in bad)[:200], True,
                           "remove the listed packages from this environment"))
+    except StopIteration:
+        pass
     except Exception as exc:
         items.append(Item("licenses", "dependency audit", "warn", str(exc)))
     return items
