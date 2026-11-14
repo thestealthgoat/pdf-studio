@@ -453,11 +453,13 @@ def _heading_at_foot(page, pi: int, body: float) -> list[Finding]:
 
 # ---------------------------------------------------------------- redaction
 def check_redaction(path: Path, o: GateOptions, password: str | None) -> list[Finding]:
-    import pdfplumber
+    """Redaction regions are in unrotated page space (see pdfcore.ops.redact)."""
     import pypdfium2 as pdfium
 
+    from pdfcore.text import open_plumber
+
     out: list[Finding] = []
-    with pdfplumber.open(str(path), password=password or "") as pdf:
+    with open_plumber(path, password, unrotated=True) as pdf:
         for pi, rect in o.redact_regions or []:
             if pi >= len(pdf.pages):
                 continue
@@ -484,16 +486,18 @@ def check_redaction(path: Path, o: GateOptions, password: str | None) -> list[Fi
                 continue
             page = doc[pi]
             tp = page.get_textpage()
-            H = page.get_height()
-            llx, lly, urx, ury = rect.expand(-0.5).to_pdf(H)
+            # pdfium text coordinates are unrotated user space; get_height() would apply /Rotate.
+            ml, mb, mr, mt = page.get_mediabox()
+            r = rect.expand(-0.5)
+            llx, lly, urx, ury = ml + r.x0, mt - r.bottom, ml + r.x1, mt - r.top
             txt = tp.get_text_bounded(left=llx, bottom=lly, right=urx, top=ury)
             for allow in o.redact_allow or []:
                 txt = txt.replace(allow, "")
             if txt.strip():
                 out.append(Finding("redaction", f"pdfium still reads text in redacted area: {txt.strip()[:20]!r}", pi, "re-run redact"))
         doc.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        out.append(Finding("redaction", f"second-engine redaction check could not run: {exc}", None, "", "warn"))
     return out
 
 

@@ -217,3 +217,22 @@ def test_gate_detects_fake_redaction(tmp_path):
     rep = run_gate(p, options=GateOptions(redact_regions=[(0, Rect(100, 76, 220, 97))], redact_terms=["123-45-6789"]))
     assert not rep.passed
     assert any(f.check == "redaction" for f in rep.failures)
+
+
+@pytest.mark.parametrize("rot", [90, 180, 270])
+def test_rotated_pages(work, rot):
+    """Regression: on rotated pages search ran in displayed space (or read text backwards) and nothing was removed."""
+    from pdfcore.text import open_plumber
+
+    src = work("contract_v1")
+    with pikepdf.open(src, allow_overwriting_input=True) as pdf:
+        for pg in pdf.pages:
+            pg.Rotate = rot
+        pdf.save(src)
+    res = redact(src, patterns=["ssn"], terms=["Jordan Blake"], quiet=True)
+    assert res.ok, res.gate.details()
+    assert res.data["glyphs_removed"] > 20
+    with open_plumber(res.output, unrotated=True) as pdf:
+        t = pdf.pages[0].extract_text()
+    assert "123-45-6789" not in t and "Jordan Blake" not in t and "Ridgeline Controls" in t
+    assert "123-45-6789" not in pdfium_text(res.output)

@@ -1,7 +1,9 @@
 """Text with positions: chars, words, lines, blocks, and search with hit rectangles.
 
-All rectangles: points, top-left origin, *unrotated page space* as pdfplumber reports it
-(i.e. relative to the MediaBox; /Rotate is not applied).
+All rectangles: points, top-left origin. By default they are in *displayed* space, as pdfplumber
+reports them (pdfplumber applies /Rotate: width/height swap on 90/270 pages). Pass ``unrotated=True``
+to work in unrotated page space (MediaBox, /Rotate ignored) — redaction uses that, because content
+streams live in unrotated space and pdfplumber reads 180/270-rotated text backwards.
 """
 
 from __future__ import annotations
@@ -12,6 +14,26 @@ from typing import Iterable
 
 from pdfcore import engines
 from pdfcore.types import Block, Hit, Line, Rect, Word
+
+
+def open_plumber(path: str | Path, password: str | None = None, *, unrotated: bool = False):
+    """pdfplumber.open, optionally on an in-memory copy with every /Rotate removed."""
+    import io
+
+    import pdfplumber
+
+    if not unrotated:
+        return pdfplumber.open(str(path), password=password or "")
+    import pikepdf
+
+    buf = io.BytesIO()
+    with pikepdf.open(str(path), password=password or "") as pdf:
+        for pg in pdf.pages:
+            if "/Rotate" in pg.obj:
+                del pg.obj["/Rotate"]
+        pdf.save(buf)
+    buf.seek(0)
+    return pdfplumber.open(buf)
 
 
 def words(path: str | Path, page: int, *, password: str | None = None, engine: str | None = None) -> list[Word]:
@@ -102,17 +124,16 @@ def search(
     whole_word: bool = False,
     pages: Iterable[int] | None = None,
     password: str | None = None,
+    unrotated: bool = False,
 ) -> list[Hit]:
     """Find text; each Hit has one rectangle per line the match spans."""
-    import pdfplumber
-
     pat = query if regex else re.escape(query)
     if whole_word:
         pat = rf"(?<!\w){pat}(?!\w)"
     flags = 0 if case else re.I
     rx = re.compile(pat, flags)
     hits: list[Hit] = []
-    with pdfplumber.open(str(path), password=password or "") as pdf:
+    with open_plumber(path, password, unrotated=unrotated) as pdf:
         idx = range(len(pdf.pages)) if pages is None else pages
         for pi in idx:
             page = pdf.pages[pi]

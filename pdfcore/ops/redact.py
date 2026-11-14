@@ -19,7 +19,8 @@ For every redaction box the op:
 7. Saves with a full rewrite (no incremental history) and runs the gate with redaction checks:
    two text engines must read nothing in any box, and no redacted term may remain.
 
-Rectangles are in pdfcore's convention: points, top-left origin, unrotated page space.
+Rectangles are in pdfcore's convention: points, top-left origin, **unrotated** page space
+(``pdfcore.text.search(..., unrotated=True)`` reports hits in that space).
 """
 
 from __future__ import annotations
@@ -919,27 +920,27 @@ def find_areas(
     found: list[Area] = []
     pg = list(pages) if pages is not None else None
     for t in terms:
-        for h in search(path, t, case=case, whole_word=whole_word, pages=pg, password=password):
+        for h in search(path, t, case=case, whole_word=whole_word, pages=pg, password=password, unrotated=True):
             found += [Area(h.page, r.expand(pad), h.text) for r in h.rects]
     for name in patterns:
         rx = PATTERNS.get(name.lower())
         if rx is None:
             raise ValueError(f"unknown pattern {name!r}; choose from {sorted(PATTERNS)}")
-        for h in search(path, rx, regex=True, case=True, pages=pg, password=password):
+        for h in search(path, rx, regex=True, case=True, pages=pg, password=password, unrotated=True):
             if name.lower() == "card" and not _luhn(h.text):
                 continue
             found += [Area(h.page, r.expand(pad), h.text) for r in h.rects]
     for rx in regexes:
-        for h in search(path, rx, regex=True, case=case, pages=pg, password=password):
+        for h in search(path, rx, regex=True, case=case, pages=pg, password=password, unrotated=True):
             found += [Area(h.page, r.expand(pad), h.text) for r in h.rects]
     return found
 
 
 def _text_in(path: Path, areas: list[Area], password: str | None) -> list[str]:
-    import pdfplumber
+    from pdfcore.text import open_plumber
 
     out = []
-    with pdfplumber.open(str(path), password=password or "") as pdf:
+    with open_plumber(path, password, unrotated=True) as pdf:
         for a in areas:
             pg = pdf.pages[a.page]
             s = "".join(

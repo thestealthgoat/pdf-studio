@@ -35,6 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--verbose", "-v", action="store_true")
     g.add_argument("--password")
     e = sub.add_parser("engines", help="list installed engines")
+    rt = sub.add_parser("route", help="which PDF Studio skill handles a plain-language request")
+    rt.add_argument("request", nargs="+")
 
     for name in sorted(COMMANDS):
         c = COMMANDS[name]
@@ -59,6 +61,12 @@ def main(argv: list[str] | None = None) -> int:
             from pdfcore.installer import run_install
 
             return run_install(yes=ns.yes, system=not ns.no_system, fonts=not ns.no_fonts)
+        if ns.cmd == "route":
+            from pdfcore.route import route, scores
+
+            req = " ".join(ns.request)
+            print(route(req), {k: v for k, v in scores(req).items() if v})
+            return 0
         if ns.cmd == "engines":
             from pdfcore import engines
 
