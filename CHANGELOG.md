@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.3.0 — Phases 3 & 4 (2026-11-13)
+
+### Phase 3 — drawings and plans (`pdfcore plans …`)
+- **Sheets**: title-block reading (vertical, rotated and mirrored text), sheet index / drawing log XLSX + bookmarks by
+  discipline + page labels, set reading (one-lines, panel schedules, general notes, equipment lists → XLSX/JSON).
+- **Compare by sheet number**: red/blue overlay, revision clouds + delta tags, title-block changes noted not clouded,
+  delta report PDF + XLSX. **Batch link**: SEE/REFER TO references, detail callouts (3/E-501), index rows.
+  **Slip sheets** by sheet number keeping markups.
+- **Measure**: scale parsing and calibration (dimension or scale bar), standard /VP /Measure viewports, length / area /
+  perimeter / count with measurement annotations, takeoff → XLSX with SUMIFS, sheet sizes, resize keeping scale, tiling.
+  **Layers** list / on / off / flatten.
+- **CAD**: DXF / DWG / HPGL → PDF (line weights, plot to scale, layouts, title block, mono), PDF → DXF for ProgeCAD,
+  ladder schematics (wire numbers, cross-references, BOM, terminals, XLSX). DWG via the `dwg` engine (ODA if installed;
+  LibreDWG in the private local edition).
+- **Issue**: revision clouds + delta tags, issue stamps, seal placement, revision-table rows.
+- Verified on a real 50-sheet public bid set: 49/50 sheet numbers read, 169 links, compare flags exactly the edited sheets.
+
+### Phase 4 — signatures, standards, accessibility
+- `sign` / `certify` / `verify` / `timestamp`: PAdES B-B → B-LTA (pyHanko), visible appearances in Inter, DocMDP.
+- `preflight` (veraPDF rule report), `pdfa` (existing PDF → PDF/A best effort, honest about remaining failures),
+  `a11y` (tags, language, headings, alt text, tables, reading order, contrast, PDF/UA findings, score).
+- Done-when: a signed PDF/A-2b document validates in veraPDF (tested at B-T and B-LTA).
+
+### Also
+- Brand system: private brand directories, brand fonts, display faces, wordmark logos, accent contrast fallback;
+  the gate fails if Typst substitutes a fallback font. Drawing-sheet text floors at 7 pt.
+
 ## v0.2.0 — Phases 1 & 2 (2026-11-13)
 
 ### Phase 1 — Acrobat / PyMuPDF parity (`pdfcore` ops)
