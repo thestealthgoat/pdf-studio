@@ -26,6 +26,10 @@ class PdfiumRender:
 
         doc = pdfium.PdfDocument(str(path), password=password)
         try:
+            try:
+                doc.init_forms()  # required for may_draw_forms to draw field values
+            except Exception:
+                pass
             pg = doc[page]
             bm = pg.render(scale=dpi / 72.0, may_draw_forms=True, draw_annots=True)
             img = bm.to_pil().convert("RGB")
