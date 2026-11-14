@@ -1,0 +1,22 @@
+# Client deliverable — watermark, shrink, then lock with a password.
+#
+# Run:      CLIENT_PDF_PASSWORD=... pdfcore recipe client-deliverable report.pdf
+# Check:    pdfcore recipe client-deliverable report.pdf --dry-run
+#
+# Op names resolve at run time to pdfcore.ops.<module>.<function>: stamp.watermark, optimize.optimize,
+# security.encrypt. Steps whose module is not available yet are flagged by --dry-run. Keys are passed
+# as keyword arguments. ${VAR} is read from the environment so passwords never live in this file.
+# Keep encrypt last: the final quality gate opens the result with the user password.
+name: Client deliverable
+description: Watermark, optimize, encrypt (password from $CLIENT_PDF_PASSWORD)
+naming: "{stem}.client.pdf"
+gate:
+  size_budget: 25                # MB; the final gate fails above this
+steps:
+  - op: stamp.watermark
+    text: CONFIDENTIAL
+    opacity: 0.12
+  - op: optimize.optimize
+  - op: security.encrypt
+    user_password: ${CLIENT_PDF_PASSWORD}
+    deny: [modify, assemble]

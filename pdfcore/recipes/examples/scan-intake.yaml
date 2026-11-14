@@ -1,0 +1,17 @@
+# Scan intake — make scans searchable, then shrink them.
+#
+# Run:      pdfcore recipe scan-intake  inbox/            (every *.pdf in the folder)
+# Check:    pdfcore recipe scan-intake  inbox/ --dry-run
+#
+# Op names resolve at run time to pdfcore.ops.<module>.<function>: ocr.ocr (needs Tesseract) and
+# optimize.optimize. Steps whose module is not available yet are flagged by --dry-run.
+# Keys are passed as keyword arguments.
+name: Scan intake
+description: OCR (deskew + auto-rotate) then optimize
+naming: "{stem}.searchable.pdf"
+steps:
+  - op: ocr.ocr
+    language: eng
+    deskew: true
+    rotate: true
+  - op: optimize.optimize
