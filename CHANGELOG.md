@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.1 — words/1 parity fixes from BAR's pdf.js spike (2026-11-14)
+- `size` is the effective font size (Tf × text-matrix y-scale); QuickBooks' 0.75-scaled text now reports 8 pt, not 10.66.
+- Line-final hyphens (PDFium U+0002) are `-`.
+- Non-embedded fonts (incl. standard 14) use fixed 0.8/−0.2 ascent/descent, so every reader gets the same boxes.
+- Word gap 0.15·size (was 0.2); whitespace is the Unicode White_Space set, spelled out.
+- Grouping runs per writing direction in that direction's own frame; blocks are ordered together in the dominant
+  frame. `/Rotate` no longer changes words/lines/blocks, and vertical title-block text on drawing sheets reads as
+  words instead of single letters.
+- Spec (`docs/pdfcore-words-1.md`) and schema text updated; only `qbo-lookalike-helvetica.words.json` changed.
+
 ## v0.5.0 — BAR integration: words/1 + standalone sidecar, Windows support (2026-11-14)
 - **`pdfcore-words/1`** (`pdfcore/words.py`): word-level JSON with positions for BAR Estimating. JSON Schema in
   `schemas/`, exact rules in `docs/pdfcore-words-1.md` (loose glyph boxes, CropBox-origin after /Rotate, ligatures +

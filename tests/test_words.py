@@ -11,7 +11,7 @@ import pytest
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from pdfcore.words import WordsError, _norm, dumps, schema_path, words_document
+from pdfcore.words import WHITESPACE, WordsError, _norm, dumps, schema_path, words_document
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = sorted((ROOT / "fixtures" / "bar").glob("*.pdf"))
@@ -105,7 +105,7 @@ def test_word_gap_rule(tmp_path):
     def draw(c):
         c.setFont("Helvetica", 10)
         c.drawString(72, 700, "AB")
-        x = 72 + c.stringWidth("AB", "Helvetica", 10) + 1.5  # 0.15·size gap: same word
+        x = 72 + c.stringWidth("AB", "Helvetica", 10) + 1.0  # 0.10·size gap: same word
         c.drawString(x, 700, "CD")
         c.drawString(x + c.stringWidth("CD", "Helvetica", 10) + 3, 700, "EF")  # 0.3·size gap: new word
     doc = words_document(make_pdf(tmp_path / "gap.pdf", draw))
@@ -211,3 +211,94 @@ def test_pages_selection(tmp_path):
     doc = words_document(p, pages=[2])
     assert [pg["index"] for pg in doc["pages"]] == [2]
     assert [(w["page"], w["text"]) for w in doc["words"]] == [(2, "page2")]
+
+
+def test_effective_font_size_includes_ctm(tmp_path):
+    def draw(c):
+        c.scale(0.75, 0.75)  # QuickBooks-style: px font size under a 0.75 CTM
+        c.setFont("Helvetica", 32 / 3)
+        c.drawString(96, 900, "Eight")
+        c.drawString(96 + c.stringWidth("Eight ", "Helvetica", 32 / 3), 900, "points")
+    ws = words_document(make_pdf(tmp_path / "ctm.pdf", draw))["words"]
+    assert [w["text"] for w in ws] == ["Eight", "points"]
+    assert all(w["size"] == pytest.approx(8.0, abs=0.01) for w in ws)
+
+
+def test_non_embedded_font_uses_fallback_metrics(tmp_path):
+    def draw(c):
+        c.setFont("Helvetica", 10)
+        c.drawString(72, 700, "Metrics")
+    w = words_document(make_pdf(tmp_path / "std.pdf", draw))["words"][0]
+    assert w["top"] == pytest.approx(92 - 8, abs=0.02) and w["bottom"] == pytest.approx(92 + 2, abs=0.02)
+
+
+def test_line_final_hyphen_is_a_hyphen(tmp_path):
+    def draw(c):
+        c.setFont("Helvetica", 11)
+        c.drawString(72, 700, "Installation and commis-")
+        c.drawString(72, 686, "sioning of the panel")
+    texts = [w["text"] for w in words_document(make_pdf(tmp_path / "hy.pdf", draw))["words"]]
+    assert "commis-" in texts and not any("\x02" in t for t in texts)
+
+
+def test_whitespace_is_unicode_white_space():
+    assert " " in WHITESPACE and "\u00a0" in WHITESPACE and "\u3000" in WHITESPACE
+    assert not any(c in WHITESPACE for c in "\x1c\x1d\x1e\x1f\ufeff\u200b")
+
+
+def _para(c):
+    c.setFont("Helvetica", 10)
+    for k, line in enumerate(["Upright content on the page", "second line of the paragraph", "third line here"]):
+        c.drawString(72, 700 - 13 * k, line)
+
+
+@pytest.mark.parametrize("rot", [90, 180, 270])
+def test_rotate_key_does_not_change_grouping(tmp_path, rot):
+    """Content upright in unrotated space, displayed turned by /Rotate: same words, lines and blocks."""
+    src = make_pdf(tmp_path / "up.pdf", _para)
+    with pikepdf.open(src) as pdf:
+        pdf.pages[0].Rotate = rot
+        pdf.save(tmp_path / f"r{rot}.pdf")
+    base = words_document(src)
+    turned = words_document(tmp_path / f"r{rot}.pdf")
+    strip = lambda d: [(w["text"], w["line"], w["block"]) for w in d["words"]]  # noqa: E731
+    assert strip(turned) == strip(base)
+    assert turned["pages"][0]["rotation"] == rot
+    for w in turned["words"]:
+        assert w["x0"] < w["x1"] and w["top"] < w["bottom"]
+
+
+def test_content_upright_after_rotate(tmp_path):
+    """A landscape sheet: portrait MediaBox, /Rotate 90, content drawn turned so it reads upright on screen."""
+    def draw(c):
+        c.translate(612, 0)
+        c.rotate(90)  # text runs up the unrotated page; /Rotate 90 (clockwise) makes it read left to right
+        c.setFont("Helvetica", 10)
+        c.drawString(72, 100, "SHEET E-101 POWER PLAN")
+        c.drawString(72, 87, "SCALE 1/8 = 1-0")
+    src = make_pdf(tmp_path / "land.pdf", draw)
+    with pikepdf.open(src) as pdf:
+        pdf.pages[0].Rotate = 90
+        pdf.save(tmp_path / "land90.pdf")
+    d = words_document(tmp_path / "land90.pdf")
+    assert lines_of(d) == ["SHEET E-101 POWER PLAN", "SCALE 1/8 = 1-0"]
+    ws = d["words"]
+    assert ws[0]["x0"] < ws[1]["x0"] and abs(ws[0]["top"] - ws[1]["top"]) < 0.5  # horizontal on screen
+    assert all(w["x1"] - w["x0"] > w["bottom"] - w["top"] for w in ws if len(w["text"]) > 3)
+
+
+def test_mixed_directions_group_in_their_own_frames(tmp_path):
+    """A drawing sheet: horizontal notes plus a vertical title-block line reading bottom to top."""
+    def draw(c):
+        c.setFont("Helvetica", 10)
+        c.drawString(72, 700, "INTERCEPT EXISTING CONDUITS")
+        c.drawString(72, 687, "TO EAST PUMP STATION.")
+        c.saveState()
+        c.translate(560, 120)
+        c.rotate(90)
+        c.drawString(0, 0, "3497 COOLIDGE RD. EAST LANSING")
+        c.restoreState()
+    d = words_document(make_pdf(tmp_path / "mixed.pdf", draw))
+    assert lines_of(d) == ["INTERCEPT EXISTING CONDUITS", "TO EAST PUMP STATION.", "3497 COOLIDGE RD. EAST LANSING"]
+    vertical = [w for w in d["words"] if w["text"] == "COOLIDGE"][0]
+    assert vertical["bottom"] - vertical["top"] > vertical["x1"] - vertical["x0"]  # tall box on screen

@@ -1,23 +1,10 @@
-"""`pdfcore-words/1`: the frozen word-level JSON contract shared with BAR Estimating.
+"""`pdfcore-words/1`: the word-level JSON contract shared with BAR Estimating.
 
-Schema: ``schemas/pdfcore-words-1.schema.json`` (source of truth). Engine: PDFium via pypdfium2 (fast, permissive).
-
-Rules (so another reader — e.g. BAR's pdf.js reader — can reproduce the output within ±1 pt):
-
-* **Coordinates** — PDF points, origin at the top-left of the page's visible box (CropBox ∩ MediaBox, what
-  pdf.js calls the viewport), after applying ``/Rotate``. ``x0 < x1``, ``top < bottom``.
-* **Glyph boxes** — horizontally the glyph advance; vertically ``top = baseline − ascent·size`` and
-  ``bottom = baseline − descent·size`` from the font's ascent/descent (PDFium "loose" char boxes).
-* **Text normalisation** — ligatures U+FB00–U+FB06 are expanded to their letters, then Unicode NFC.
-  PDFium's synthesised (generated) spaces/newlines are ignored.
-* **Words** — a word ends at any whitespace character, at a change of baseline (> 0.5·size), or where the
-  horizontal gap between consecutive glyph boxes exceeds 0.2·size.
-* **Lines** — words whose baselines differ by ≤ 0.3·size and whose horizontal gap is ≤ 3·size join a line
-  (left to right); otherwise a new line starts.
-* **Blocks** — lines stacked with a vertical gap ≤ 0.9·line height that overlap horizontally join a block.
-  Blocks are ordered by a recursive XY-cut (bands before columns), lines within a block top-to-bottom,
-  words left-to-right. ``line`` and ``block`` are numbered 0-based per page in that reading order.
-* **Numbers** rounded to 0.01; output is deterministic (same input + version → identical bytes).
+Schema: ``schemas/pdfcore-words-1.schema.json``. Exact rules: ``docs/pdfcore-words-1.md`` (every threshold and
+tie-break, so BAR's pdf.js reader reproduces the output). Engine: PDFium via pypdfium2. In short: glyphs in
+CropBox ∩ MediaBox space, grouped in the page's dominant reading frame (so ``/Rotate`` never changes grouping),
+effective font size (Tf × matrix y-scale), font ascent/descent boxes (0.8/−0.2 for non-embedded fonts), word gap
+0.15·size, lines, blocks, horizontal-first XY-cut; output in display coordinates, rounded to 0.01, deterministic.
 """
 
 from __future__ import annotations
@@ -31,6 +18,7 @@ from pathlib import Path
 from typing import Iterable
 
 SCHEMA = "pdfcore-words/1"
+WORD_GAP = 0.15  # × size: a larger horizontal gap between glyphs starts a new word
 LIGATURES = {"ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st"}
 
 
@@ -108,9 +96,49 @@ def _strip_subset(name: str) -> str:
 
 
 # ----------------------------------------------------------------------------- PDFium extraction
+# Unicode White_Space (spelled out: Python's str.isspace() also matches U+001C–U+001F, JS \s also matches U+FEFF)
+WHITESPACE = frozenset("\t\n\v\f\r \x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009"
+                       "\u200a\u2028\u2029\u202f\u205f\u3000")
+FALLBACK_ASCENT, FALLBACK_DESCENT = 0.8, -0.2  # used for every non-embedded font (readers' substitutes differ)
+
+
+@dataclass
+class _Raw:
+    """One glyph in unrotated visible-box space (u right, v down, origin top-left of CropBox ∩ MediaBox)."""
+    ch: str
+    u0: float
+    v0: float
+    u1: float
+    v1: float
+    ou: float
+    ov: float
+    size: float      # effective size: Tf × y-scale of the glyph's matrix
+    font: str
+    embedded: bool
+    direction: int   # writing direction in unrotated space, 0/90/180/270 clockwise
+
+
+def _rot_pt(x: float, y: float, r: int, w: float, h: float) -> tuple[float, float]:
+    """Rotate a point of a w×h top-left-origin box clockwise by r degrees."""
+    if r == 90:
+        return h - y, x
+    if r == 180:
+        return w - x, h - y
+    if r == 270:
+        return y, w - x
+    return x, y
+
+
+def _rot_box(x0: float, y0: float, x1: float, y1: float, r: int, w: float, h: float):
+    ax, ay = _rot_pt(x0, y0, r, w, h)
+    bx, by = _rot_pt(x1, y1, r, w, h)
+    return min(ax, bx), min(ay, by), max(ax, bx), max(ay, by)
+
+
 def _page_glyphs(pdf, page_index: int):
-    """Glyphs of one page in visible-box, top-left, rotated coordinates; returns (glyphs, width, height, rotation)."""
+    """Glyphs of one page in unrotated visible-box space; returns (raws, W, H, rotation)."""
     import ctypes
+    import math
 
     import pypdfium2.raw as R
 
@@ -121,53 +149,83 @@ def _page_glyphs(pdf, page_index: int):
         ml, mb, mr, mt = (float(v) for v in page.get_mediabox())
         l, b, r, t = max(l, ml), max(b, mb), min(r, mr), min(t, mt)
         W, H = r - l, t - b
-
-        def to_view(x: float, y: float) -> tuple[float, float]:
-            u, v = x - l, t - y  # unrotated, top-left origin
-            if rot == 90:
-                return H - v, u
-            if rot == 180:
-                return W - u, H - v
-            if rot == 270:
-                return v, W - u
-            return u, v
-
-        vw, vh = (H, W) if rot in (90, 270) else (W, H)
         tp = page.get_textpage()
         raw = tp.raw
         n = R.FPDFText_CountChars(raw)
-        out: list[_Glyph] = []
-        L, B, Rr, T = (ctypes.c_double() for _ in range(4))
-        rect = R.FS_RECTF()
+        out: list[_Raw] = []
+        rect, m = R.FS_RECTF(), R.FS_MATRIX()
         ox, oy = ctypes.c_double(), ctypes.c_double()
         buf = ctypes.create_string_buffer(256)
         flags = ctypes.c_int()
-        font_cache: dict[int, str] = {}
+        fonts: dict[str, str] = {}
+        embedded_cache: dict[int, bool] = {}
         for i in range(n):
             if R.FPDFText_IsGenerated(raw, i) == 1:
                 continue
             cp = R.FPDFText_GetUnicode(raw, i)
-            if cp == 0:
+            if R.FPDFText_IsHyphen(raw, i) == 1:
+                ch = "-"  # PDFium reports a line-final hyphen as U+0002
+            elif cp == 0:
                 continue
-            ch = chr(cp)
-            if ch in "\r\n":
-                ch = " "
+            else:
+                ch = chr(cp)
             if not R.FPDFText_GetLooseCharBox(raw, i, rect):
                 continue
             R.FPDFText_GetCharOrigin(raw, i, ox, oy)
-            size = float(R.FPDFText_GetFontSize(raw, i))
+            R.FPDFText_GetMatrix(raw, i, m)
+            size = float(R.FPDFText_GetFontSize(raw, i)) * math.hypot(m.c, m.d)
+            angle = math.degrees(math.atan2(-m.b, m.a))  # glyph x-axis in v-down space
+            direction = int(round(angle / 90.0)) % 4 * 90
             nlen = R.FPDFText_GetFontInfo(raw, i, buf, 256, flags)
-            font = buf.raw[: max(0, nlen - 1)].decode("utf-8", "replace") if nlen else ""
-            font = font_cache.setdefault(hash(font), _strip_subset(font))
-            corners = [to_view(rect.left, rect.top), to_view(rect.right, rect.bottom)]
-            xs, ys = [c[0] for c in corners], [c[1] for c in corners]
-            bx, by = to_view(ox.value, oy.value)
-            baseline = by if rot in (0, 180) else bx
-            out.append(_Glyph(ch, min(xs), min(ys), max(xs), max(ys), baseline, size, font))
+            name = buf.raw[: max(0, nlen - 1)].decode("utf-8", "replace") if nlen else ""
+            font = fonts.get(name)
+            if font is None:
+                font = fonts[name] = _strip_subset(name)
+            obj = R.FPDFText_GetTextObject(raw, i)
+            fh = R.FPDFTextObj_GetFont(obj) if obj else None
+            key = ctypes.cast(fh, ctypes.c_void_p).value or 0 if fh else 0
+            if key not in embedded_cache:
+                embedded_cache[key] = bool(fh) and R.FPDFFont_GetIsEmbedded(fh) == 1
+            out.append(_Raw(ch, rect.left - l, t - rect.top, rect.right - l, t - rect.bottom, ox.value - l, t - oy.value,
+                            size, font, embedded_cache[key], direction))
         tp.close()
-        return out, vw, vh, rot
+        return out, W, H, rot
     finally:
         page.close()
+
+
+def _dominant_direction(raws: list[_Raw], rot: int) -> int:
+    """Most common writing direction in display space (ties → smallest); 0 for a page without text."""
+    counts = {0: 0, 90: 0, 180: 0, 270: 0}
+    for g in raws:
+        if g.ch not in WHITESPACE:
+            counts[(g.direction + rot) % 360] += 1
+    return max(counts, key=lambda d: (counts[d], -d))
+
+
+@dataclass
+class _Placed:
+    """A block positioned in the dominant frame for ordering, remembering its own frame."""
+    block: _Block
+    turn: int        # own frame -> display: turn clockwise by this
+    fw: float        # own frame size
+    fh: float
+    x0: float
+    top: float
+    x1: float
+    bottom: float
+
+
+def _frame_glyphs(raws: list[_Raw], rf: int, W: float, H: float) -> list[_Glyph]:
+    """Glyphs in a reading frame: unrotated space turned clockwise by rf (rf is chosen so these glyphs run +x)."""
+    out = []
+    for g in raws:
+        x0, top, x1, bottom = _rot_box(g.u0, g.v0, g.u1, g.v1, rf, W, H)
+        bx, by = _rot_pt(g.ou, g.ov, rf, W, H)
+        if not g.embedded:
+            top, bottom = by - FALLBACK_ASCENT * g.size, by - FALLBACK_DESCENT * g.size
+        out.append(_Glyph(g.ch, x0, top, x1, bottom, by, g.size, g.font))
+    return out
 
 
 # ----------------------------------------------------------------------------- grouping
@@ -184,13 +242,13 @@ def _words(glyphs: list[_Glyph]) -> list[_Word]:
             cur.clear()
 
     for g in glyphs:
-        if g.ch.isspace():
+        if g.ch in WHITESPACE:
             flush()
             continue
         if cur:
             p = cur[-1]
             size = max(p.size, g.size, 1.0)
-            if abs(g.baseline - p.baseline) > 0.5 * size or g.x0 - p.x1 > 0.2 * size or g.x1 < p.x0:
+            if abs(g.baseline - p.baseline) > 0.5 * size or g.x0 - p.x1 > WORD_GAP * size or g.x1 < p.x0:
                 flush()
         cur.append(g)
     flush()
@@ -310,18 +368,31 @@ def words_document(path: str | Path, *, pages: Iterable[int] | None = None, pass
         for pi in idx:
             if timeout is not None and time.monotonic() - t0 > timeout:
                 raise WordsError("Timeout", f"stopped after {timeout:g} s at page {pi + 1} of {n}")
-            glyphs, W, H, rot = _page_glyphs(pdf, pi)
-            page_rows.append({"index": pi, "width": _r(W), "height": _r(H), "rotation": rot})
-            ws = _words(glyphs)
-            if ws:
-                any_text = True
-            blocks = _xy_cut(_blocks(_lines(ws)))
+            raws, W, H, rot = _page_glyphs(pdf, pi)
+            vw, vh = (H, W) if rot in (90, 270) else (W, H)
+            page_rows.append({"index": pi, "width": _r(vw), "height": _r(vh), "rotation": rot})
+            D = _dominant_direction(raws, rot)
+            back = (360 - D) % 360  # display -> dominant frame
+            placed: list[_Placed] = []
+            for delta in (0, 90, 180, 270):  # each writing direction is grouped in its own frame
+                group = [g for g in raws if (g.direction + rot) % 360 == delta]
+                if not group:
+                    continue
+                rf = (rot - delta) % 360
+                fw, fh = (H, W) if rf in (90, 270) else (W, H)
+                ws = _words(_frame_glyphs(group, rf, W, H))
+                any_text = any_text or bool(ws)
+                for bk in _blocks(_lines(ws)):
+                    dx0, dt, dx1, db = _rot_box(bk.x0, bk.top, bk.x1, bk.bottom, delta, fw, fh)
+                    x0, top, x1, bottom = _rot_box(dx0, dt, dx1, db, back, vw, vh)
+                    placed.append(_Placed(bk, delta, fw, fh, x0, top, x1, bottom))
             li = 0
-            for bi, bk in enumerate(blocks):
-                for ln in sorted(bk.lines, key=lambda l: (l.top, l.x0)):
+            for bi, pl in enumerate(_xy_cut(placed)):
+                for ln in sorted(pl.block.lines, key=lambda l: (l.top, l.x0)):
                     for w in sorted(ln.words, key=lambda w: w.x0):
-                        word_rows.append({"text": w.text, "page": pi, "x0": _r(w.x0), "top": _r(w.top), "x1": _r(w.x1),
-                                          "bottom": _r(w.bottom), "font": w.font, "size": _r(w.size), "line": li, "block": bi})
+                        x0, top, x1, bottom = _rot_box(w.x0, w.top, w.x1, w.bottom, pl.turn, pl.fw, pl.fh)
+                        word_rows.append({"text": w.text, "page": pi, "x0": _r(x0), "top": _r(top), "x1": _r(x1),
+                                          "bottom": _r(bottom), "font": w.font, "size": _r(w.size), "line": li, "block": bi})
                     li += 1
         return {
             "schema": SCHEMA,

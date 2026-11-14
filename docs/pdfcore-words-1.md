@@ -6,27 +6,48 @@ Schema: [`schemas/pdfcore-words-1.schema.json`](../schemas/pdfcore-words-1.schem
 reader (BAR's pdf.js reader) can reproduce it. All thresholds are in PDF points or multiples of the font size;
 no sort key is rounded.
 
-## 1. Page space
-- Visible box `V = CropBox ∩ MediaBox` (pdf.js's viewport box). `W, H` = its width/height.
-- A point `(x, y)` in PDF user space maps to `(u, v) = (x − V.left, V.top − y)`, then by `/Rotate`:
-  0 → `(u, v)`; 90 → `(H − v, u)`; 180 → `(W − u, H − v)`; 270 → `(v, W − u)`.
-- `pages[].width/height` are the displayed size (`W, H`, swapped for 90/270).
+## 1. Page space and the reading frame
+- Visible box `V = CropBox ∩ MediaBox` (pdf.js's viewport box), `W × H`. **Unrotated space**: a PDF user-space
+  point `(x, y)` maps to `(u, v) = (x − V.left, V.top − y)` (origin top-left, `v` down).
+- `rot(p, r, w, h)` turns a point of a `w × h` box clockwise by `r`: 0 → `(x, y)`; 90 → `(h − y, x)`;
+  180 → `(w − x, h − y)`; 270 → `(y, w − x)`. A box is turned by turning two opposite corners and taking min/max.
+- **Display space** = unrotated space turned by `/Rotate` (`rot(·, R, W, H)`). All output coordinates are in display
+  space; `pages[].width/height` are the displayed size (`W, H`, swapped for 90/270).
+- **Writing direction** of a glyph: its text-rendering matrix x-axis `(a, b)` in PDF space is `(a, −b)` in
+  unrotated space; `θ = atan2(−b, a)` in degrees, quantised `q = round(θ / 90) mod 4`, direction `= 90·q`
+  (clockwise). Its display direction is `(direction + R) mod 360`.
+- **Direction groups.** Split the page's glyphs by display direction `δ ∈ {0, 90, 180, 270}` (each group keeps
+  content-stream order). A group's **frame** is unrotated space turned by `F = (R − δ) mod 360` (size `W_F × H_F`,
+  swapped for 90/270), so that group's text runs left to right. **§2–§5 (boxes, words, lines, blocks) run per group
+  in its own frame.** Output boxes are frame boxes turned by `δ` (`rot(·, δ, W_F, H_F)`), which lands in display
+  space. Drawing sheets mix directions (vertical title-block and label text), so this matters.
+- **Dominant direction** `D`: the display direction shared by the most non-whitespace glyphs (ties → the smallest;
+  0 for a page without text). **§6 orders all blocks of all groups together in the dominant frame**: each block's
+  display box is turned by `(360 − D) mod 360` (`rot(·, ·, display W, display H)`) and the XY-cut runs on those
+  boxes. Lines and words inside a block are ordered in the block's own frame.
+- Examples: an ordinary page, or a landscape sheet drawn upright for its `/Rotate`, has `D = 0`, so its frame is the
+  display; content that is upright before `/Rotate` has `D = R`, so the page groups exactly as if unrotated.
 
 ## 2. Glyphs
 - Source: every character of the page's text, in content-stream order, **excluding** characters synthesised by
-  the extractor (PDFium "generated" spaces/line breaks; pdf.js `hasEOL`/inserted spaces) and code point 0.
-  Line-break characters in the content count as whitespace.
-- Box: horizontally the glyph's advance (origin to origin + advance); vertically
-  `top = baseline − ascent·size`, `bottom = baseline − descent·size` (font ascent/descent; fallback 0.8 / −0.2).
-  `size` = effective font size in points. Coordinates mapped as in §1; `baseline` is the mapped baseline
-  (`v` for 0°/180°, `u` for 90°/270°).
+  the extractor (PDFium "generated" characters). pdf.js normalisation is not applied (BAR reads operator-list
+  glyphs). Code point 0 is skipped. A character PDFium flags as a hyphen (`FPDFText_IsHyphen`, reported as U+0002)
+  is `-`.
+- `size` = **effective** font size: `Tf × hypot(c, d)` of the glyph's text-rendering matrix `[a b c d e f]`
+  (text matrix × CTM, without `Tf`), i.e. `Tf` scaled by the matrix's y-axis length.
+- Box, in the group's frame: horizontally the glyph's advance (origin to origin + advance; **excludes** `Tc`/`Tw`
+  spacing); vertically `top = baseline − ascent·size`, `bottom = baseline − descent·size`, with the font's
+  ascent/descent for **embedded** fonts and the fixed fallback **0.8 / −0.2 for every non-embedded font**
+  (including the standard 14 — readers substitute different fonts). `baseline` = the frame `y` of the glyph origin.
 - `font` = base font name with a 6-uppercase-letter subset prefix `ABCDEF+` removed.
 
 ## 3. Words
 Walk glyphs in order. Start a new word when:
-1. the glyph is whitespace (`str.isspace()` / JS `\s`) — the whitespace itself is dropped; or
+1. the glyph is whitespace — the Unicode `White_Space` set: U+0009–U+000D, U+0020, U+0085, U+00A0, U+1680,
+   U+2000–U+200A, U+2028, U+2029, U+202F, U+205F, U+3000 (not Python `str.isspace()`, which adds U+001C–U+001F,
+   nor JS `\s`, which adds U+FEFF) — the whitespace itself is dropped; or
 2. `|baseline − previous.baseline| > 0.5·s`; or
-3. `glyph.x0 − previous.x1 > 0.2·s`; or
+3. `glyph.x0 − previous.x1 > 0.15·s`; or
 4. `glyph.x1 < previous.x0` (the text jumped backwards),
 
 where `s = max(previous.size, glyph.size, 1)`. A word's box is the union of its glyph boxes; its `size` is the max
@@ -61,7 +82,7 @@ reads cell by cell (`Activity, Description, Qty, Rate, Amount`), then the next r
 laid out as two right-aligned stacks (e.g. `DATE` / `11/05/2026`) read as all labels, then all values — use the
 coordinates for those.
 
-Within a block: lines by `(top, x0)`; within a line: words by `x0`. `block` = position in the ordered block list;
+Within a block: lines by `(top, x0)`; within a line: words by `x0` (both in the block's own frame). `block` = position in the ordered block list;
 `line` = running index over lines in that order. Both 0-based per page.
 
 ## 7. Output

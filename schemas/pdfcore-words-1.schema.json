@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/thestealthgoat/pdf-studio/schemas/pdfcore-words-1.schema.json",
   "title": "pdfcore-words/1",
-  "description": "Word-level text with positions for one PDF. Coordinates are PDF points with the origin at the top-left of the page's visible box (CropBox ∩ MediaBox), after applying /Rotate. Glyph boxes: horizontally the glyph advance; vertically top = baseline − ascent·size, bottom = baseline − descent·size (font metrics). Text: ligatures U+FB00–U+FB06 expanded, then NFC. A word ends at whitespace, at a baseline change > 0.5·size, or at a horizontal glyph gap > 0.2·size. Words are in reading order (see docs/pdfcore-words-1.md). Numbers are rounded to 0.01. Within /1 only additive changes are allowed; readers must ignore unknown fields.",
+  "description": "Word-level text with positions for one PDF. Coordinates are PDF points with the origin at the top-left of the page's visible box (CropBox ∩ MediaBox), after applying /Rotate. Grouping runs in the page's dominant reading frame, so /Rotate never changes words, lines or blocks. size is the effective font size (Tf × the text matrix's y-scale). Glyph boxes: horizontally the glyph advance; vertically top = baseline − ascent·size, bottom = baseline − descent·size (font metrics; 0.8/−0.2 for non-embedded fonts). Text: ligatures U+FB00–U+FB06 expanded, then NFC. A word ends at Unicode White_Space, at a baseline change > 0.5·size, or at a horizontal glyph gap > 0.15·size. Words are in reading order (see docs/pdfcore-words-1.md). Numbers are rounded to 0.01. Within /1 only additive changes are allowed; readers must ignore unknown fields.",
   "type": "object",
   "required": ["schema", "producer", "source", "pages", "words"],
   "properties": {
@@ -52,7 +52,7 @@
           "x1": { "type": "number" },
           "bottom": { "type": "number" },
           "font": { "type": "string", "description": "Base font name without a subset prefix (ABCDEF+)." },
-          "size": { "type": "number", "minimum": 0 },
+          "size": { "type": "number", "minimum": 0, "description": "Effective font size in points (Tf × text-matrix y-scale)" },
           "line": { "type": "integer", "minimum": 0, "description": "0-based per page, in reading order" },
           "block": { "type": "integer", "minimum": 0, "description": "0-based per page, in reading order" }
         }
