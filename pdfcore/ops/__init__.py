@@ -14,7 +14,7 @@ from typing import Callable
 from pdfcore.result import OpResult
 
 MODULES = [
-    "organize", "navigate", "stamp", "redact", "markup", "compare", "ocr", "forms",
+    "organize", "repair", "navigate", "stamp", "redact", "markup", "compare", "ocr", "forms",
     "optimize", "security", "extract", "convert", "recipes_op", "typeset", "plans", "sign", "standards",
 ]
 

@@ -18,6 +18,7 @@ pdfcore delete-pages f.pdf "2,7-9"
 pdfcore reorder f.pdf "3,1,2,4-"                      # or: reverse
 pdfcore extract-pages f.pdf "5-8"
 pdfcore rotate f.pdf 90 --pages even
+pdfcore repair damaged.pdf                          # rebuild a broken file; reports pages it could not recover
 pdfcore crop f.pdf --margins 0.5in                   # t,r,b,l also accepted; --box x0,y0,x1,y1; --trim
 pdfcore page-labels f.pdf --range 1-4:roman --range 5-:decimal:E-:1
 ```
