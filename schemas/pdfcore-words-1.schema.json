@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/thestealthgoat/pdf-studio/schemas/pdfcore-words-1.schema.json",
+  "title": "pdfcore-words/1",
+  "description": "Word-level text with positions for one PDF. Coordinates are PDF points with the origin at the top-left of the page's visible box (CropBox ∩ MediaBox), after applying /Rotate. Glyph boxes: horizontally the glyph advance; vertically top = baseline − ascent·size, bottom = baseline − descent·size (font metrics). Text: ligatures U+FB00–U+FB06 expanded, then NFC. A word ends at whitespace, at a baseline change > 0.5·size, or at a horizontal glyph gap > 0.2·size. Words are in reading order (see docs/pdfcore-words-1.md). Numbers are rounded to 0.01. Within /1 only additive changes are allowed; readers must ignore unknown fields.",
+  "type": "object",
+  "required": ["schema", "producer", "source", "pages", "words"],
+  "properties": {
+    "schema": { "const": "pdfcore-words/1" },
+    "producer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+([-+][0-9A-Za-z.-]+)?$" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["sha256", "pageCount", "encrypted", "hasTextLayer"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "pageCount": { "type": "integer", "minimum": 0 },
+        "encrypted": { "type": "boolean" },
+        "hasTextLayer": { "type": "boolean", "description": "true when at least one non-whitespace glyph was extracted" }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "description": "Pages processed (all, or the --pages selection), in order. width/height are the displayed (rotated) size of the visible box.",
+      "items": {
+        "type": "object",
+        "required": ["index", "width", "height", "rotation"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "width": { "type": "number", "exclusiveMinimum": 0 },
+          "height": { "type": "number", "exclusiveMinimum": 0 },
+          "rotation": { "enum": [0, 90, 180, 270] }
+        }
+      }
+    },
+    "words": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "page", "x0", "top", "x1", "bottom", "font", "size", "line", "block"],
+        "properties": {
+          "text": { "type": "string", "minLength": 1, "pattern": "^\\S+$" },
+          "page": { "type": "integer", "minimum": 0 },
+          "x0": { "type": "number" },
+          "top": { "type": "number" },
+          "x1": { "type": "number" },
+          "bottom": { "type": "number" },
+          "font": { "type": "string", "description": "Base font name without a subset prefix (ABCDEF+)." },
+          "size": { "type": "number", "minimum": 0 },
+          "line": { "type": "integer", "minimum": 0, "description": "0-based per page, in reading order" },
+          "block": { "type": "integer", "minimum": 0, "description": "0-based per page, in reading order" }
+        }
+      }
+    }
+  }
+}
