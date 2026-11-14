@@ -11,7 +11,7 @@ Sheets are referred to by sheet number (E-101), not page number, whenever possib
 
 ```bash
 pdfcore plans index set.pdf                    # sheet no., title, rev, date from title blocks → XLSX + bookmarks
-pdfcore plans index set.pdf --bookmark         # writes set.indexed.pdf with one bookmark per sheet
+pdfcore plans index set.pdf                    # also writes set.indexed.pdf (bookmarks by discipline; --no-bookmark, --no-xlsx)
 pdfcore plans read set.pdf                     # finds one-lines, panel schedules, notes, equipment lists → tables
 pdfcore tables set.pdf --pages 3 --format xlsx # a specific schedule
 ```
