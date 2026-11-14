@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.0 — conversions, native DWG, site plans (2026-11-13)
+- **`pdfcore convert`**: one front door for every format pair — images (PNG/JPG/TIFF/GIF/BMP/WebP/AVIF/JP2/HEIC),
+  SVG, DXF/DWG/PLT, Markdown, text, HTML, Office → PDF; PDF → images, SVG, DXF, DWG (with a writer), Word,
+  Markdown, HTML, XLSX/CSV, text, JSON; image ↔ image; DWG ↔ DXF; batch, folders, `--merge`, `--list`.
+- **Native DWG reader** (clean-room from the ODA published spec): R2000–R2018 in pure Python, no ODA or LibreDWG
+  needed; matches a black-box oracle on 28 sample drawings; fuzz-tested. External converters remain as fallback.
+- **Site plans from imagery** (`pip install 'pdf-studio[site]'`): `plans site-fetch` (USGS NAIP + OpenStreetMap,
+  State Plane feet), `site-from-image` (your screenshots / drone photos with calibration), `site-extract`
+  (buildings, roads, pavement, trees, water), `site-plan` (layered DXF + PDF at engineering scale, legend, north
+  arrow, /Measure), `site-add` (proposed infrastructure + takeoff XLSX).
+
 ## v0.3.0 — Phases 3 & 4 (2026-11-13)
 
 ### Phase 3 — drawings and plans (`pdfcore plans …`)
