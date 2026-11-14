@@ -63,8 +63,8 @@ pdfcore plans schematic ladder.yaml                     # ladder/wiring diagram 
 pdfcore make drawing-sheet sheet.yaml                   # blank sheet with title block
 ```
 
-DWG needs a converter: the local edition uses LibreDWG; elsewhere the free ODA File Converter if the user
-installed it. If neither exists, ask for a DXF export instead.
+DWG R2000–R2018 is read natively (pure Python, no ODA/LibreDWG); MLINE, multileaders, tables, ACIS solids and
+images inside DWGs are skipped and reported. Writing DWG needs the ODA File Converter (user-installed).
 
 ## Drawing rules (for anything you produce)
 

@@ -83,20 +83,68 @@ def get(kind: str, name: str | None = None) -> Any:
     return _cache[key]
 
 
-def dwg_converter():
-    """First installed DWG→DXF converter: $PDFCORE_DWG_ENGINE, else ODA (if installed), else any other
-    registered converter (e.g. LibreDWG from the local edition). Raises with install advice if none."""
-    _load()
-    name = os.environ.get("PDFCORE_DWG_ENGINE")
-    if name:
-        return get("dwg", name)
-    order = sorted(_REG["dwg"], key=lambda n: (n != "oda", n))
+_NO_DWG = (
+    "No DWG converter installed. Options: install the free ODA File Converter "
+    "(opendesign.com/guestfiles/oda_file_converter — accept its terms yourself), or the private "
+    "local edition (LibreDWG). Or export DXF from your CAD program and use dxf2pdf."
+)
+
+
+def _external_dwg():
+    """First installed non-native DWG→DXF converter: ODA, then any other registered (e.g. LibreDWG)."""
+    order = sorted((n for n in _REG["dwg"] if n != "native"), key=lambda n: (n != "oda", n))
     for n in order:
         conv = get("dwg", n)
         if getattr(conv, "installed", lambda: True)():
             return conv
-    raise RuntimeError(
-        "No DWG converter installed. Options: install the free ODA File Converter "
-        "(opendesign.com/guestfiles/oda_file_converter — accept its terms yourself), or the private "
-        "local edition (LibreDWG). Or export DXF from your CAD program and use dxf2pdf."
-    )
+    return None
+
+
+class _AutoDwg:
+    """Per-file choice: the native reader when it supports the file's version (peeks the 6-byte version
+    string), else — or if the native read fails — the first installed external converter."""
+
+    name = "auto"
+
+    def installed(self) -> bool:
+        return True
+
+    def to_dxf(self, src, out_dir):
+        from pathlib import Path
+
+        native = get("dwg", "native") if "native" in _REG["dwg"] else None
+        if native is not None and native.can_read(Path(src)):
+            try:
+                return native.to_dxf(src, out_dir)
+            except Exception as exc:  # corrupt/unsupported content: try an external converter if any
+                ext = _external_dwg()
+                if ext is None:
+                    raise RuntimeError(f"native DWG reader failed: {exc}") from exc
+                return ext.to_dxf(src, out_dir)
+        ext = _external_dwg()
+        if ext is None:
+            raise RuntimeError("This DWG version is not supported by the built-in reader. " + _NO_DWG)
+        return ext.to_dxf(src, out_dir)
+
+
+def dwg_converter(src=None):
+    """DWG→DXF converter. ``$PDFCORE_DWG_ENGINE`` wins; otherwise the built-in ``native`` reader when it
+    can read ``src``'s version, falling back to ODA (if installed) or any other registered converter (e.g.
+    LibreDWG from the local edition). Without ``src`` an auto-selecting converter is returned that makes
+    that choice per file in ``to_dxf``. Raises with install advice if nothing can convert the file."""
+    _load()
+    name = os.environ.get("PDFCORE_DWG_ENGINE")
+    if name:
+        return get("dwg", name)
+    if src is None:
+        if "native" in _REG["dwg"]:
+            return _AutoDwg()
+    else:
+        from pathlib import Path
+
+        if "native" in _REG["dwg"] and get("dwg", "native").can_read(Path(src)):
+            return get("dwg", "native")
+    ext = _external_dwg()
+    if ext is not None:
+        return ext
+    raise RuntimeError(_NO_DWG)

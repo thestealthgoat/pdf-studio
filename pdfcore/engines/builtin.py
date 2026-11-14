@@ -153,8 +153,58 @@ class OdaDwg:
             raise RuntimeError(f"ODA File Converter produced no DXF for {src.name}")
         return out
 
+    def from_dxf(self, src: Path, out_dir: Path, version: str = "ACAD2018") -> Path:
+        """DXF → DWG (ODA writes DWG; used only if the user installed ODA)."""
+        import shutil
+        import subprocess
+        import tempfile
+
+        exe = self.exe()
+        if not exe:
+            raise RuntimeError("ODA File Converter not installed")
+        src = Path(src)
+        with tempfile.TemporaryDirectory() as tin:
+            shutil.copy(src, Path(tin) / src.name)
+            subprocess.run([exe, tin, str(out_dir), version, "DWG", "0", "1", src.name], check=True,
+                           capture_output=True, timeout=600)
+        out = Path(out_dir) / (src.stem + ".dwg")
+        if not out.exists():
+            raise RuntimeError(f"ODA File Converter produced no DWG for {src.name}")
+        return out
+
+
+class NativeDwg:
+    """Built-in clean-room DWG reader (pdfcore.ops.plans.dwg, MIT; R2000–R2018). Needs only ezdxf.
+
+    Reads DWG only (no ``from_dxf``). ``last_report`` holds the :class:`ReadReport` of the last conversion.
+    """
+
+    name = "native"
+
+    def __init__(self) -> None:
+        self.last_report = None
+
+    def installed(self) -> bool:
+        return True
+
+    def can_read(self, src: Path) -> bool:
+        from pdfcore.ops.plans.dwg import can_read
+
+        return can_read(src)
+
+    def to_dxf(self, src: Path, out_dir: Path) -> Path:
+        from pdfcore.ops.plans.dwg import read_dwg
+
+        src = Path(src)
+        doc, report = read_dwg(src)
+        self.last_report = report
+        out = Path(out_dir) / (src.stem + ".dxf")
+        doc.saveas(str(out))
+        return out
+
 
 def register(reg) -> None:
     reg("render", "pdfium", PdfiumRender, default=True, source="pdf-studio")
     reg("text", "pdfplumber", PlumberText, default=True, source="pdf-studio")
     reg("dwg", "oda", OdaDwg, default=False, source="pdf-studio")
+    reg("dwg", "native", NativeDwg, default=False, source="pdf-studio")
