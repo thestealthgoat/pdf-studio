@@ -1086,7 +1086,7 @@ def render(pkg: SitePackage | str | Path, *, scale: str = "auto", size: str = "a
                 "revisions": [{"rev": rev, "date": date or dt.date.today().isoformat(),
                                "description": "Issued for review" if job is None else "Issued for pricing / review"}]}
         yml = tmp / "sheet.yaml"
-        yml.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
+        yml.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
         sheet_pdf = tmp / "sheet.pdf"
         make("drawing-sheet", yml, brand=brand, out=sheet_pdf, quiet=True)
         # --- /Measure viewport over the plan window (page points, top-left)

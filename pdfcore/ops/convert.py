@@ -75,16 +75,9 @@ def _pdf_out(src: Path, out: str | Path | None) -> Path:
 
 
 def find_soffice() -> str | None:
-    for name in ("soffice", "libreoffice"):
-        p = shutil.which(name)
-        if p:
-            return p
-    for p in ("/Applications/LibreOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice",
-              "/usr/local/bin/soffice", "/usr/bin/soffice", "/usr/lib/libreoffice/program/soffice",
-              r"C:\Program Files\LibreOffice\program\soffice.exe"):
-        if Path(p).exists():
-            return p
-    return None
+    from pdfcore.tools import find_tool
+
+    return find_tool("soffice")
 
 
 def office_to_pdf(
@@ -449,14 +442,14 @@ MATRIX: list[tuple[str, str, str]] = [
     ("pdf", "png jpg tiff webp gif bmp avif jp2 heic", "pypdfium2 render + Pillow (--dpi, --multipage; heic via sips)"),
     ("pdf", "svg", "pypdfium2 page objects → SVG (paths, <text>, data-URI images)"),
     ("pdf", "dxf", "cad.pdf_to_dxf (ezdxf)"),
-    ("pdf", "dwg", "pdf_to_dxf → dwg engine from_dxf (ODA File Converter)"),
+    ("pdf", "dwg", "pdf_to_dxf → native DWG writer (R2000; ODA if installed)"),
     ("pdf", "docx", "python-docx (headings, lists, tables, images)"),
     ("pdf", "md html", "reading-order structure (headings, lists, tables, images)"),
     ("pdf", "xlsx csv", "extract.find_tables + openpyxl"),
     ("pdf", "txt json", "pdfplumber text (reading order / words with boxes)"),
     ("png jpg tiff gif bmp webp avif jp2 heic", "png jpg tiff gif bmp webp avif jp2 heic", "Pillow (sips for HEIC)"),
-    ("dwg", "dxf", "dwg engine to_dxf (ODA File Converter or local edition)"),
-    ("dxf", "dwg", "dwg engine from_dxf (ODA File Converter)"),
+    ("dwg", "dxf", "native DWG reader (R2000–R2018; ODA/LibreDWG fallback)"),
+    ("dxf", "dwg", "native DWG writer (R2000; ODA if installed)"),
     ("plt/hpgl", "dxf", "cad HPGL/2 reader → ezdxf"),
     ("any → PDF source", "any PDF target", "two steps through a temporary PDF (e.g. docx→png, dxf→svg, md→docx)"),
 ]
@@ -486,16 +479,21 @@ def matrix() -> str:
 
 
 def dwg_writer() -> Any:
-    """First installed ``dwg`` engine that can write DWG (has ``from_dxf``)."""
+    """The ``dwg`` engine that writes DWG (has ``from_dxf``): ``$PDFCORE_DWG_ENGINE`` if it can write, else
+    the built-in native writer (R2000), else the first other installed writer (e.g. ODA)."""
+    import os
+
     from pdfcore import engines
 
-    try:
-        conv = engines.dwg_converter()
-        if hasattr(conv, "from_dxf"):
-            return conv
-    except RuntimeError:
-        pass
-    for name in engines.available("dwg"):
+    if os.environ.get("PDFCORE_DWG_ENGINE"):
+        try:
+            conv = engines.dwg_converter()
+            if hasattr(conv, "from_dxf"):
+                return conv
+        except (RuntimeError, KeyError):
+            pass
+    names = engines.available("dwg")
+    for name in sorted(names, key=lambda n: n != "native"):
         try:
             c = engines.get("dwg", name)
         except Exception:
@@ -503,7 +501,7 @@ def dwg_writer() -> Any:
         if hasattr(c, "from_dxf") and getattr(c, "installed", lambda: True)():
             return c
     raise RuntimeError("DWG writing needs ODA File Converter (free download: opendesign.com/guestfiles/oda_file_converter "
-                       "— accept its terms yourself) or the upcoming native DWG writer. Convert --to dxf instead: "
+                       "— accept its terms yourself) or the native writer (set PDFCORE_DWG_ENGINE=native). Convert --to dxf instead: "
                        "every CAD program opens DXF.")
 
 

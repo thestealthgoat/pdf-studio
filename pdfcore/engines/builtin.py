@@ -173,15 +173,17 @@ class OdaDwg:
 
 
 class NativeDwg:
-    """Built-in clean-room DWG reader (pdfcore.ops.plans.dwg, MIT; R2000–R2018). Needs only ezdxf.
+    """Built-in clean-room DWG reader and writer (pdfcore.ops.plans.dwg, MIT). Needs only ezdxf.
 
-    Reads DWG only (no ``from_dxf``). ``last_report`` holds the :class:`ReadReport` of the last conversion.
+    Reads R2000–R2018; writes R2000 (AC1015) with ``from_dxf``. ``last_report`` holds the
+    :class:`ReadReport` of the last read, ``last_write_report`` the :class:`WriteReport` of the last write.
     """
 
     name = "native"
 
     def __init__(self) -> None:
         self.last_report = None
+        self.last_write_report = None
 
     def installed(self) -> bool:
         return True
@@ -199,6 +201,23 @@ class NativeDwg:
         self.last_report = report
         out = Path(out_dir) / (src.stem + ".dxf")
         doc.saveas(str(out))
+        return out
+
+    def from_dxf(self, src: Path, out_dir: Path, version: str = "R2000") -> Path:
+        """DXF → DWG with the native writer (R2000/AC1015 only). Unreadable DXF is opened with ezdxf's
+        recover mode. Returns the written ``<out_dir>/<stem>.dwg``."""
+        import ezdxf
+        from ezdxf import recover
+
+        from pdfcore.ops.plans.dwg.writer import write_dwg
+
+        src = Path(src)
+        try:
+            doc = ezdxf.readfile(str(src))
+        except ezdxf.DXFStructureError:
+            doc, _auditor = recover.readfile(str(src))
+        out = Path(out_dir) / (src.stem + ".dwg")
+        self.last_write_report = write_dwg(doc, out, version=version)
         return out
 
 

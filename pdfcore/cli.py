@@ -46,7 +46,17 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _utf8_console() -> None:
+    """Windows consoles default to a legacy code page; never crash printing ✓, —, ½ or non-Latin file names."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_console()
     p = build_parser()
     ns = p.parse_args(argv)
     if not ns.cmd:

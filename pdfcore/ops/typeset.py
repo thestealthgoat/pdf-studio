@@ -72,7 +72,7 @@ def brand_path(brand: str | Path) -> Path:
 
 def load_brand(brand: str | Path = "default") -> dict:
     p = brand_path(brand)
-    b = tomllib.loads(p.read_text())
+    b = tomllib.loads(p.read_text(encoding="utf-8"))
     c = b["colors"]
     problems = []
     for key in ("ink", "muted", "primary"):
@@ -329,7 +329,7 @@ def make(
     data_path = None
     if not isinstance(data, dict):
         data_path = Path(data)
-        data = yaml.safe_load(data_path.read_text()) or {}
+        data = yaml.safe_load(data_path.read_text(encoding="utf-8")) or {}
     b = load_brand(brand)
     prepared = PREPARE.get(template, prepare_generic)(data)
     dst = _out_for(data_path, template, out)
@@ -346,12 +346,11 @@ def make(
                     (root / "assets").mkdir(exist_ok=True)
                     shutil.copy(srcf, root / "assets" / srcf.name)
         brand_json = {k: v for k, v in b.items() if not k.startswith("_")}
-        (root / "data.json").write_text(json.dumps(prepared, default=_jsonable, ensure_ascii=False))
-        (root / "brand.json").write_text(json.dumps(brand_json, ensure_ascii=False))
+        (root / "data.json").write_text(json.dumps(prepared, default=_jsonable, ensure_ascii=False), encoding="utf-8")
+        (root / "brand.json").write_text(json.dumps(brand_json, ensure_ascii=False), encoding="utf-8")
         fn = template.replace("-", "_")
         (root / "main.typ").write_text(
-            f'#import "/typst/{template}.typ": {fn}\n#{fn}(data: json("/data.json"), brand: json("/brand.json"))\n'
-        )
+            f'#import "/typst/{template}.typ": {fn}\n#{fn}(data: json("/data.json"), brand: json("/brand.json"))\n', encoding="utf-8")
         fonts = [str(font_dir())] + ([b["_font_dir"]] if b.get("_font_dir") else [])
         kw: dict[str, Any] = dict(root=str(root), font_paths=fonts, ignore_system_fonts=True, pdf_tags=True)
         if standard:

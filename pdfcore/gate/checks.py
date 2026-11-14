@@ -43,6 +43,7 @@ class GateOptions:
     png_dir: Path | None = None
     png_dpi: float = 60
     max_pages: int = 400  # pages rendered/inspected; very long docs are sampled
+    allow_clipped: bool = False  # text outside the CropBox is intended (e.g. tiled printing pages)
     deep_pages: int = 24  # text-level checks (fonts, layout) sample this many pages on long edit/drawing docs
 
 
@@ -414,7 +415,7 @@ def check_layout(path: Path, n: int, o: GateOptions, password: str | None, sampl
                         sides.add("bottom")
                     if c["top"] < vt - 1:
                         sides.add("top")
-                for s in sorted(sides):
+                for s in ([] if o.allow_clipped else sorted(sides)):
                     out.append(Finding("layout", f"text clipped past {s} page edge", pi, "move or shrink the text"))
                 if any(c.get("text") == "�" or str(c.get("text", "")).startswith("(cid:") for c in chars):
                     out.append(Finding("fonts", "missing glyphs (.notdef / unmapped characters)", pi, "use a font that covers every character"))
@@ -545,7 +546,9 @@ _VERA_FLAVOURS = {
 
 
 def check_standard(path: Path, standard: str) -> list[Finding]:
-    exe = shutil.which("verapdf")
+    from pdfcore.tools import find_tool
+
+    exe = find_tool("verapdf")
     if not exe:
         return [Finding("standard", "veraPDF not installed; cannot validate", None, "run pdfcore install")]
     flav = _VERA_FLAVOURS.get(standard.lower(), standard)

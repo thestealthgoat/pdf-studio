@@ -16,6 +16,11 @@ from pdfcore.licenses import audit, native_audit  # noqa: E402
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--markdown", help="write a table of every dependency and its license")
     a = ap.parse_args()
@@ -28,7 +33,7 @@ def main() -> int:
         lines = ["| Package | Version | License | Note |", "|---|---|---|---|"]
         for r in rows:
             lines.append(f"| {r.name} | {r.version} | {r.license.replace('|', '/')} | {r.reason} |")
-        Path(a.markdown).write_text("\n".join(lines) + "\n")
+        Path(a.markdown).write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\n{len(rows)} packages, {len(bad)} failing")
     native = native_audit()
     nbad = [r for r in native if r.verdict == "fail"]

@@ -26,16 +26,6 @@ soffice = pytest.mark.skipif(convert.find_soffice() is None, reason="LibreOffice
 sips = pytest.mark.skipif(convert.find_sips() is None, reason="macOS sips not available")
 
 
-def _dwg_reader() -> bool:
-    from pdfcore import engines
-
-    try:
-        engines.dwg_converter()
-        return True
-    except RuntimeError:
-        return False
-
-
 def _dwg_writer() -> bool:
     try:
         convert.dwg_writer()
@@ -187,10 +177,8 @@ def test_dxf_and_hpgl_to_pdf(tmp_path):
     assert len(ezdxf.readfile(str(dxf)).modelspace()) > 0
 
 
-@pytest.mark.skipif(not _dwg_reader(), reason="no DWG engine installed (ODA File Converter)")
 def test_dwg_to_pdf_and_dxf(tmp_path):
-    if not _dwg_writer():
-        pytest.skip("need a DWG writer to make a test DWG")
+    # the built-in native engine reads and writes DWG, so this round trip always runs
     dwg = convert.convert(_dxf(tmp_path / "plan.dxf"), "dwg", out=tmp_path / "plan.dwg", quiet=True).output
     assert convert.convert(dwg, "pdf", out=tmp_path / "from_dwg.pdf", quiet=True).ok
     back = convert.convert(dwg, "dxf", out=tmp_path / "back.dxf", quiet=True).output

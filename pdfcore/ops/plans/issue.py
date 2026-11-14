@@ -437,7 +437,7 @@ def _load_seal_form(pdf: pikepdf.Pdf, path: Path) -> tuple[Any, float, float, st
 
         with tempfile.TemporaryDirectory(prefix="pdfcore-seal-") as tmp:
             shutil.copy(path, Path(tmp) / "seal.svg")
-            (Path(tmp) / "main.typ").write_text('#set page(width: auto, height: auto, margin: 0pt)\n#image("seal.svg", width: 3in)\n')
+            (Path(tmp) / "main.typ").write_text('#set page(width: auto, height: auto, margin: 0pt)\n#image("seal.svg", width: 3in)\n', encoding="utf-8")
             data = typst.compile(str(Path(tmp) / "main.typ"), root=tmp)
         return _pdf_form(pdf, data)
     if ext == ".pdf":

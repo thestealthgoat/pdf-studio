@@ -830,7 +830,7 @@ def _fill_pdf(pdf: pikepdf.Pdf, values: Mapping[str, Any], *, strict: bool = Fal
 def parse_xfdf(path_or_text: str | Path) -> dict[str, Any]:
     """{name: value} from an XFDF file (nested <field> names joined with '.')."""
     p = Path(str(path_or_text))
-    text = p.read_text("utf-8") if p.exists() else str(path_or_text)
+    text = p.read_text(encoding="utf-8") if p.exists() else str(path_or_text)
     root = ET.fromstring(text)
     out: dict[str, Any] = {}
 
@@ -867,7 +867,7 @@ def _load_values(data: Mapping[str, Any] | str | Path) -> dict[str, Any]:
             raise ValueError(f"{p} has no data rows")
         return dict(rows[0])
     if p.exists():
-        return json.loads(p.read_text("utf-8"))
+        return json.loads(p.read_text(encoding="utf-8"))
     return json.loads(str(data))
 
 
@@ -1109,7 +1109,7 @@ def add_fields(
     """Add fields (text, multiline, password, checkbox, radio group, dropdown, list, signature) at Rects."""
     src = Path(src)
     if isinstance(specs, (str, Path)):
-        raw = json.loads(Path(specs).read_text("utf-8")) if Path(str(specs)).exists() else json.loads(str(specs))
+        raw = json.loads(Path(specs).read_text(encoding="utf-8")) if Path(str(specs)).exists() else json.loads(str(specs))
         specs = raw["fields"] if isinstance(raw, Mapping) else raw
     sp = [s if isinstance(s, FieldSpec) else FieldSpec.from_dict(s) for s in specs]
     dst = output_path(src, "fields", out=out)
@@ -1527,14 +1527,14 @@ def export_data(src: str | Path, *, fmt: str = "json", out: str | Path | None = 
     values = {f.name: f.value for f in infos}
     dst = output_path(src, "data", ext=f".{fmt}", out=out)
     if fmt == "json":
-        dst.write_text(json.dumps(values, indent=2, ensure_ascii=False) + "\n", "utf-8")
+        dst.write_text(json.dumps(values, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     elif fmt == "csv":
         with dst.open("w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
             w.writerow(list(values))
             w.writerow(["|".join(v) if isinstance(v, list) else ("" if v is None else v) for v in values.values()])
     else:
-        dst.write_text(_xfdf(values, src.name), "utf-8")
+        dst.write_text(_xfdf(values, src.name), encoding="utf-8")
     if not quiet:
         print(f"{dst}  {len(values)} field(s)")
     return OpResult(dst, None, data={"values": values})

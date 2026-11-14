@@ -59,6 +59,14 @@ def _tool_version(exe: str, args: list[str]) -> str:
         return f"error: {exc}"
 
 
+def _install_hint(formula: str) -> str:
+    import platform
+
+    if platform.system() == "Windows":
+        return "pdfcore install --yes   (uses winget; veraPDF: verapdf.org/software)"
+    return f"brew install {formula}"
+
+
 def collect() -> list[Item]:
     items: list[Item] = []
     v = sys.version_info
@@ -76,19 +84,20 @@ def collect() -> list[Item]:
         except Exception:
             items.append(Item("extras", f"{dist} [{extra}]", "missing", "", False, f"pip install 'pdf-studio[{extra}]'"))
     for exe, args, req, purpose, formula in TOOLS:
-        path = shutil.which(exe)
-        if exe == "soffice" and not path:
-            mac = Path("/Applications/LibreOffice.app/Contents/MacOS/soffice")
-            path = str(mac) if mac.exists() else None
+        from pdfcore.tools import find_tool
+
+        path = find_tool(exe)
         if path:
             ver = _tool_version(path, args)
             bad = ver.startswith("error") or "Unable to locate" in ver
-            items.append(Item("tools", exe, "warn" if bad else "ok", ver, req, f"reinstall: brew install {formula}" if bad else ""))
+            items.append(Item("tools", exe, "warn" if bad else "ok", ver, req, ("reinstall: " + _install_hint(formula)) if bad else ""))
         else:
-            items.append(Item("tools", exe, "missing", purpose, req, f"brew install {formula}"))
-    if shutil.which("tesseract"):
+            items.append(Item("tools", exe, "missing", purpose, req, _install_hint(formula)))
+    from pdfcore.tools import find_tool as _ft
+
+    if _ft("tesseract"):
         try:
-            langs = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True, timeout=30).stdout.splitlines()[1:]
+            langs = subprocess.run([_ft("tesseract"), "--list-langs"], capture_output=True, text=True, timeout=30).stdout.splitlines()[1:]
             langs = [ln.strip() for ln in langs if ln.strip()]
             items.append(Item("tools", "tesseract langs", "ok" if "eng" in langs else "warn", ",".join(langs[:8])))
         except Exception:

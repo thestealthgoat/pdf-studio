@@ -1378,7 +1378,7 @@ def _load_spec(spec: str | Path | dict | list) -> dict:
     if isinstance(spec, (str, Path)) and Path(spec).exists():
         import yaml
 
-        data = yaml.safe_load(Path(spec).read_text())
+        data = yaml.safe_load(Path(spec).read_text(encoding="utf-8"))
     elif isinstance(spec, str):
         import yaml
 
@@ -1974,7 +1974,11 @@ def tile(src: str | Path, *, paper: str = "letter", pages: Sequence[int] | None 
         res.save(o)
         ov.close()
         res.close()
-    return finalize(o, src, options=gate, password=password,
+    from pdfcore.gate import GateOptions
+
+    g = gate or GateOptions()
+    g.allow_clipped = True  # each tile page carries the whole sheet; only its tile is meant to be visible
+    return finalize(o, src, options=g, password=password,
                     data={"tiles": tiles, "grid": grids, "paper": pname, "overlap": overlap, "margin": margin},
                     quiet=quiet)
 

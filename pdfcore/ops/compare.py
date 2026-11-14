@@ -578,7 +578,7 @@ def text_diff(
             "pages_are": "0-based"}
     dst = output_path(new, "diff", out=out)
     jpath = Path(json_out) if json_out is not None else dst.with_suffix(".json")
-    jpath.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    jpath.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     _diff_report(dst, old, new, summary, changes, furn)
     from pdfcore.gate import GateOptions
 

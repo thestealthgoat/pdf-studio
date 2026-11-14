@@ -32,8 +32,23 @@ def run_install(yes: bool = False, system: bool = True, fonts: bool = True) -> i
                 rc |= _run(["brew", "install", *missing])
             if not shutil.which("soffice") and not _mac_soffice():
                 rc |= _run(["brew", "install", "--cask", *BREW_CASKS])
+        elif osname == "Windows":
+            from pdfcore.tools import find_tool
+
+            winget = shutil.which("winget")
+            pkgs = {"tesseract": "UB-Mannheim.TesseractOCR", "soffice": "TheDocumentFoundation.LibreOffice"}
+            for tool, pkg in pkgs.items():
+                if find_tool(tool):
+                    continue
+                if winget:
+                    rc |= _run([winget, "install", "--id", pkg, "-e", "--accept-source-agreements",
+                                "--accept-package-agreements"] if yes else [winget, "install", "--id", pkg, "-e"])
+                else:
+                    print(f"Install {pkg} (winget not found): https://winget.run/pkg/{pkg.replace('.', '/')}")
+            if not find_tool("verapdf"):
+                print("veraPDF (PDF/A validation, optional): download the installer from https://verapdf.org/software/")
         else:
-            print("Install manually: Tesseract, Typst, veraPDF, LibreOffice (see README).")
+            print("Supported platforms are macOS and Windows. Install Tesseract, veraPDF and LibreOffice manually.")
     if fonts:
         from pdfcore.fonts import missing_fonts
 

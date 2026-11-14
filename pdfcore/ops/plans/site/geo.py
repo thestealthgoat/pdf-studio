@@ -269,11 +269,11 @@ class SitePackage:
         return self.root / "georef.json"
 
     def georef(self) -> Georef:
-        return Georef.from_dict(json.loads(self.georef_path.read_text()))
+        return Georef.from_dict(json.loads(self.georef_path.read_text(encoding="utf-8")))
 
     def save_georef(self, g: Georef) -> None:
-        self.georef_path.write_text(json.dumps(g.to_dict(), indent=2))
-        self.image_path.with_suffix(".pgw").write_text(g.world_file())
+        self.georef_path.write_text(json.dumps(g.to_dict(), indent=2), encoding="utf-8")
+        self.image_path.with_suffix(".pgw").write_text(g.world_file(), encoding="utf-8")
         x0, y0, x1, y1 = g.extent()
         self.manifest["crs"] = g.crs.to_dict()
         self.manifest["extent_ft"] = [float(v) for v in (x0, y0, x1, y1)]
@@ -284,7 +284,7 @@ class SitePackage:
         p = self.root / name
         if not p.exists():
             return []
-        return json.loads(p.read_text()).get("features", [])
+        return json.loads(p.read_text(encoding="utf-8")).get("features", [])
 
     def write_features(self, name: str, feats: list[dict], crs: CRSInfo, meta: dict | None = None) -> Path:
         p = self.root / name
@@ -293,8 +293,8 @@ class SitePackage:
               "features": feats}
         if meta:
             fc["meta"] = meta
-        p.write_text(json.dumps(fc, separators=(",", ":")))
-        json.loads(p.read_text())  # verify it parses
+        p.write_text(json.dumps(fc, separators=(",", ":")), encoding="utf-8")
+        json.loads(p.read_text(encoding="utf-8"))  # verify it parses
         self.manifest.setdefault("files", {})[Path(name).stem] = name
         return p
 
@@ -311,7 +311,7 @@ class SitePackage:
     def save(self) -> None:
         self.manifest.setdefault("kind", "pdf-studio site package")
         self.manifest["version"] = PACKAGE_VERSION
-        self.manifest_path.write_text(json.dumps(self.manifest, indent=2))
+        self.manifest_path.write_text(json.dumps(self.manifest, indent=2), encoding="utf-8")
 
     @classmethod
     def create(cls, root: str | Path, **manifest: Any) -> "SitePackage":
@@ -332,7 +332,7 @@ class SitePackage:
         if not mp.exists():
             raise FileNotFoundError(f"{root} is not a site package (no manifest.json) — make one with "
                                     "`pdfcore plans site-fetch` or `site-from-image`")
-        return cls(root, json.loads(mp.read_text()))
+        return cls(root, json.loads(mp.read_text(encoding="utf-8")))
 
 
 def new_package_dir(base: str | Path) -> Path:

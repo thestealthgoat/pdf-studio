@@ -1530,7 +1530,7 @@ def export_annotations(src: str | Path, *, out: str | Path | None = None, passwo
     items = list_annotations(src, password=password)
     dst = output_path(src, "annots", ext=".json", out=out)
     dst.write_text(json.dumps({"source": src.name, "pages_are": "0-based", "annotations": items}, indent=2,
-                              ensure_ascii=False))
+                              ensure_ascii=False), encoding="utf-8")
     if not quiet:
         print(f"{dst}  {len(items)} annotation(s)")
     return OpResult(dst, None, [], {"count": len(items)})
@@ -1540,7 +1540,7 @@ def import_annotations(src: str | Path, data: str | Path | Sequence[dict] | dict
                        password: str | None = None, options=None, quiet: bool = False) -> OpResult:
     """Recreate annotations from an export (or any list of specs) onto a copy of *src*, with fresh appearances."""
     if isinstance(data, (str, Path)):
-        data = json.loads(Path(data).read_text())
+        data = json.loads(Path(data).read_text(encoding="utf-8"))
     items = data["annotations"] if isinstance(data, dict) and "annotations" in data else data
     specs = []
     for it in items:  # type: ignore[union-attr]
@@ -1713,7 +1713,7 @@ def _cli_annotate(p: argparse.ArgumentParser):
 
     def run(ns):
         if ns.spec:
-            specs = json.loads(Path(ns.spec).read_text())
+            specs = json.loads(Path(ns.spec).read_text(encoding="utf-8"))
             specs = specs["annotations"] if isinstance(specs, dict) else specs
             return annotate(ns.pdf, specs, out=ns.out, password=ns.password, options=gate_options_from(ns))
         kind = "line" if ns.kind == "arrow" else ns.kind

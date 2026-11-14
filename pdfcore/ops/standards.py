@@ -135,7 +135,9 @@ def run_verapdf(path: str | Path, standard: str = "pdfa-2b", *, max_samples: int
     """Validate with the veraPDF CLI (``--format json``) and parse every failed rule."""
     std = _norm_standard(standard)
     flav = FLAVOURS[std]
-    exe = shutil.which("verapdf")
+    from pdfcore.tools import find_tool
+
+    exe = find_tool("verapdf")
     if not exe:
         return VeraResult(std, flav, False, error="veraPDF not installed (run pdfcore install)")
     cmd = [exe, "--flavour", flav, "--format", "json", "--maxfailuresdisplayed", str(max(1, max_samples))]
@@ -264,7 +266,7 @@ def _col_widths(rows: Sequence[Sequence[Any]], ncol: int, total: float) -> list[
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> Path:
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     return path
 
 

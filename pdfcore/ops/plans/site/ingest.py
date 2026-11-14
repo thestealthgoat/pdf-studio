@@ -141,6 +141,9 @@ _DIST = re.compile(r"^(\d+(?:[.,]\d+)?)(ft|feet|foot|m|meters?|metres?|km|mi|mil
 
 def _ocr_words(img, scale: int = 2) -> list[dict]:
     import pytesseract
+    from pdfcore.tools import configure_tesseract
+
+    configure_tesseract()
     from PIL import ImageOps
 
     out = []

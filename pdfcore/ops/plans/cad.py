@@ -723,7 +723,7 @@ def dxf_to_pdf(
             import yaml
 
             yml = Path(tmp) / "sheet.yaml"
-            yml.write_text(yaml.safe_dump(data, sort_keys=False))
+            yml.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
             res = make("drawing-sheet", yml, brand=brand, out=dst, quiet=True)
             extra["title_block_gate"] = res.line()
     ratio = unit_in / info["ppu_in"]
@@ -1214,7 +1214,7 @@ def load_ladder(data: dict[str, Any] | str | Path) -> dict[str, Any]:
     import yaml
 
     if not isinstance(data, dict):
-        data = yaml.safe_load(Path(data).read_text()) or {}
+        data = yaml.safe_load(Path(data).read_text(encoding="utf-8")) or {}
     defaults = {str(k): (v or {}) for k, v in (data.get("devices") or {}).items()}
     rungs: list[Rung] = []
     for r in data.get("rungs") or []:
@@ -2333,7 +2333,7 @@ def schematic(
             sd["revisions"] = [{"rev": str(r.get("rev", "")), "date": str(r.get("date", "")), "description": str(r.get("description", ""))}
                                for r in (sd.get("revisions") or [])]
             yml = tmpdir / f"sheet{k}.yaml"
-            yml.write_text(yaml.safe_dump(sd, sort_keys=False, default_flow_style=False, allow_unicode=True))
+            yml.write_text(yaml.safe_dump(sd, sort_keys=False, default_flow_style=False, allow_unicode=True), encoding="utf-8")
             o = tmpdir / f"sheet{k}.out.pdf"
             make("drawing-sheet", yml, brand=brand, out=o, quiet=True)
             parts.append(o)

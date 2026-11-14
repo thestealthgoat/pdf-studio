@@ -104,7 +104,7 @@ def load_job(spec: str | Path | dict, pkg) -> Job:
 
     from pdfcore.ops.plans.site.geo import to_crs
 
-    data = spec if isinstance(spec, dict) else yaml.safe_load(Path(spec).read_text())
+    data = spec if isinstance(spec, dict) else yaml.safe_load(Path(spec).read_text(encoding="utf-8"))
     if not isinstance(data, dict) or not isinstance(data.get("items"), list):
         raise ValueError("job YAML needs an 'items:' list")
     g = pkg.georef()

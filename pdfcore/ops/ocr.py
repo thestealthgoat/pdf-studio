@@ -125,6 +125,9 @@ def detect_skew(img: Image.Image, limit: float = 5.0, step: float = 0.5, fine: f
 def detect_orientation(img: Image.Image, min_conf: float = 1.5) -> tuple[int, float | None]:
     """Clockwise rotation (0/90/180/270) Tesseract OSD says makes the page upright, and its confidence."""
     import pytesseract
+    from pdfcore.tools import configure_tesseract
+
+    configure_tesseract()
 
     try:
         small = img.convert("L")
@@ -218,6 +221,9 @@ class _OcrWord:
 
 def _tesseract_words(img: Image.Image, lang: str, psm: int, min_conf: float) -> list[_OcrWord]:
     import pytesseract
+    from pdfcore.tools import configure_tesseract
+
+    configure_tesseract()
 
     d = pytesseract.image_to_data(img, lang=lang, config=f"--psm {psm}", output_type=pytesseract.Output.DICT)
     out: list[_OcrWord] = []
@@ -308,6 +314,9 @@ def ocr(
     """
     import pypdfium2 as pdfium
     import pytesseract
+    from pdfcore.tools import configure_tesseract
+
+    configure_tesseract()
 
     src = Path(src)
     lang = language if isinstance(language, str) else "+".join(language)
