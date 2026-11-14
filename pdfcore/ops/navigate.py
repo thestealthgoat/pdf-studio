@@ -266,11 +266,20 @@ def _page_words(page, pi: int) -> list[Word]:
 
 
 def _body_size(pages_words: list[list[Word]]) -> float:
+    """Most common text size, counted on paragraph-like lines (≥ 6 words) so that short documents whose
+    headings outweigh their body text don't mistake a heading size for the body size."""
     cnt: Counter = Counter()
+    fallback: Counter = Counter()
     for ws in pages_words:
+        lines: dict[tuple[float, float], list[Word]] = {}
         for w in ws:
-            cnt[round(w.size * 2) / 2] += len(w.text)
-    return cnt.most_common(1)[0][0] if cnt else 0.0
+            fallback[round(w.size * 2) / 2] += len(w.text)
+            lines.setdefault((round(w.rect.bottom), round(w.size * 2) / 2), []).append(w)
+        for (_, size), lw in lines.items():
+            if len(lw) >= 6:
+                cnt[size] += sum(len(w.text) for w in lw)
+    use = cnt if cnt else fallback
+    return use.most_common(1)[0][0] if use else 0.0
 
 
 def _line_candidate(line, body: float, min_ratio: float) -> Heading | None:

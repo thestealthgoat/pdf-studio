@@ -337,14 +337,14 @@ def make(
         root = Path(tmp)
         shutil.copytree(tdir / "typst", root / "typst")
         shutil.copytree(Path(b["_dir"]), root / "brands")
-        # images referenced by the data, relative to the data file
-        if data_path is not None:
-            for k in ("images", "assets"):
-                for rel in prepared.get(k, []) or []:
-                    srcf = (data_path.parent / rel).resolve()
-                    if srcf.exists():
-                        (root / "assets").mkdir(exist_ok=True)
-                        shutil.copy(srcf, root / "assets" / srcf.name)
+        # images referenced by the data: absolute paths, or relative to the data file (or the cwd for dict data)
+        base = data_path.parent if data_path is not None else Path.cwd()
+        for k in ("images", "assets"):
+            for rel in prepared.get(k, []) or []:
+                srcf = (base / rel).expanduser().resolve()
+                if srcf.exists():
+                    (root / "assets").mkdir(exist_ok=True)
+                    shutil.copy(srcf, root / "assets" / srcf.name)
         brand_json = {k: v for k, v in b.items() if not k.startswith("_")}
         (root / "data.json").write_text(json.dumps(prepared, default=_jsonable, ensure_ascii=False))
         (root / "brand.json").write_text(json.dumps(brand_json, ensure_ascii=False))

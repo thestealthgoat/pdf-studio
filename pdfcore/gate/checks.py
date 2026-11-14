@@ -43,12 +43,22 @@ class GateOptions:
     png_dir: Path | None = None
     png_dpi: float = 60
     max_pages: int = 400  # pages rendered/inspected; very long docs are sampled
+    deep_pages: int = 24  # text-level checks (fonts, layout) sample this many pages on long edit/drawing docs
 
 
 @dataclass
 class Found:
     findings: list[Finding] = field(default_factory=list)
     pngs: list[Path] = field(default_factory=list)
+
+
+def deep_sample(n: int, o: GateOptions) -> list[int] | None:
+    """Pages for the expensive text-level checks; None = all. Generated documents (typeset) are always checked in
+    full; long edit/drawing documents (e.g. 50-sheet bid sets) are sampled: first, last and evenly spaced pages."""
+    if o.profile == "typeset" or n <= o.deep_pages or o.redact_regions:
+        return None
+    step = (n - 1) / (o.deep_pages - 1)
+    return sorted({round(i * step) for i in range(o.deep_pages)})
 
 
 def run_all(path: Path, o: GateOptions, password: str | None = None) -> Found:
@@ -67,11 +77,14 @@ def run_all(path: Path, o: GateOptions, password: str | None = None) -> Found:
         if n == 0:
             f.append(Finding("open", "document has no pages", None, "check the op's page selection"))
             return out
-        f += check_fonts(pdf)
+        sample = deep_sample(n, o)
+        f += check_fonts(pdf, sample)
         f += check_links(pdf)
         f += check_metadata(pdf, o)
     f += check_render_and_blank(path, n, o, password, out)
-    f += check_layout(path, n, o, password)
+    f += check_layout(path, n, o, password, sample)
+    if sample is not None:
+        f.append(Finding("sampling", f"fonts and layout checked on {len(sample)} of {n} pages (long document)", None, "", "warn"))
     if o.max_size_mb is not None:
         mb = path.stat().st_size / 1e6
         if mb > o.max_size_mb:
@@ -91,7 +104,7 @@ _STD14 = {
 }
 
 
-def _iter_fonts(pdf):
+def _iter_fonts(pdf, pages: list[int] | None = None):
     """Yield (page_index, font_name, font_dict) for every font a page can use, including form XObjects."""
     import pikepdf
 
@@ -155,6 +168,8 @@ def _iter_fonts(pdf):
                     continue
 
     for pi, page in enumerate(pdf.pages):
+        if pages is not None and pi not in pages:
+            continue
         try:
             yield from walk(page, page.obj.get("/Resources"), pi)
         except Exception:
@@ -179,9 +194,9 @@ def _embedded(fd) -> bool:
     return any(k in desc for k in ("/FontFile", "/FontFile2", "/FontFile3"))
 
 
-def check_fonts(pdf) -> list[Finding]:
+def check_fonts(pdf, pages: list[int] | None = None) -> list[Finding]:
     out: list[Finding] = []
-    for pi, _name, fd in _iter_fonts(pdf):
+    for pi, _name, fd in _iter_fonts(pdf, pages):
         try:
             sub = str(fd.get("/Subtype", ""))
             base = str(fd.get("/BaseFont", "")).lstrip("/")
@@ -350,7 +365,24 @@ def _is_blank(img) -> bool:
     return dark / max(1, g.width * g.height) < 0.0005
 
 
-def check_layout(path: Path, n: int, o: GateOptions, password: str | None) -> list[Finding]:
+def _visible_box(page) -> tuple[float, float, float, float]:
+    """Visible area (CropBox) in pdfplumber's coordinates. pdfplumber measures from the MediaBox's top-left and
+    applies /Rotate; for rotated pages fall back to the full page."""
+    W, H = float(page.width), float(page.height)
+    try:
+        if int(page.rotation or 0) % 360:
+            return 0.0, 0.0, W, H
+        mb = [float(v) for v in page.mediabox]
+        cb = [float(v) for v in (page.cropbox or page.mediabox)]
+        mx0, my1 = min(mb[0], mb[2]), max(mb[1], mb[3])
+        cx0, cx1 = min(cb[0], cb[2]), max(cb[0], cb[2])
+        cy0, cy1 = min(cb[1], cb[3]), max(cb[1], cb[3])
+        return cx0 - mx0, my1 - cy1, cx1 - mx0, my1 - cy0
+    except Exception:
+        return 0.0, 0.0, W, H
+
+
+def check_layout(path: Path, n: int, o: GateOptions, password: str | None, sample: list[int] | None = None) -> list[Finding]:
     """Clipped text (always), margins + headings at foot (typeset), image dpi, min text height (drawing)."""
     import pdfplumber
 
@@ -360,23 +392,27 @@ def check_layout(path: Path, n: int, o: GateOptions, password: str | None) -> li
     except Exception as exc:
         return [Finding("layout", f"cannot read text layer: {exc}", None, "repair the file")]
     with pdf:
-        pages = pdf.pages if n <= o.max_pages else [pdf.pages[i] for i in range(0, n, max(1, n // o.max_pages))]
+        if sample is not None:
+            pages = [pdf.pages[i] for i in sample]
+        else:
+            pages = pdf.pages if n <= o.max_pages else [pdf.pages[i] for i in range(0, n, max(1, n // o.max_pages))]
         body_size = _body_font_size(pages[: min(len(pages), 10)])
         for page in pages:
             pi = page.page_number - 1
             try:
                 W, H = float(page.width), float(page.height)
                 chars = [c for c in page.chars if c.get("text", "").strip()]
-                # Text outside the visible page is clipped.
+                # Text outside the visible area (CropBox) is clipped.
+                vx0, vt, vx1, vb = _visible_box(page)
                 sides = set()
                 for c in chars:
-                    if c["x1"] > W + 1:
+                    if c["x1"] > vx1 + 1:
                         sides.add("right")
-                    if c["x0"] < -1:
+                    if c["x0"] < vx0 - 1:
                         sides.add("left")
-                    if c["bottom"] > H + 1:
+                    if c["bottom"] > vb + 1:
                         sides.add("bottom")
-                    if c["top"] < -1:
+                    if c["top"] < vt - 1:
                         sides.add("top")
                 for s in sorted(sides):
                     out.append(Finding("layout", f"text clipped past {s} page edge", pi, "move or shrink the text"))

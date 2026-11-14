@@ -144,3 +144,39 @@ def test_no_bundled_copyleft_native_libraries():
 
     bad = [r for r in native_audit() if r.verdict == "fail"]
     assert not bad, [(r.package, r.library, r.reason) for r in bad]
+
+
+def test_gate_cropbox_clipping(tmp_path):
+    """Text outside the visible CropBox is clipped; an offset MediaBox alone is not."""
+    import io
+
+    import pikepdf
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    c.setFont(register_reportlab_font(), 12)
+    c.drawString(300, 400, "visible")
+    c.drawString(40, 750, "outside the crop")
+    c.save()
+    p = pikepdf.open(io.BytesIO(buf.getvalue()))
+    p.pages[0].MediaBox = [-200, -200, 812, 992]
+    p.pages[0].CropBox = [100, 100, 512, 692]
+    out = tmp_path / "crop.pdf"
+    p.save(out)
+    msgs = [f.message for f in run_gate(out).failures]
+    assert any("clipped past" in m for m in msgs)
+
+
+def test_gate_samples_long_drawing_sets():
+    from pdfcore.gate.checks import GateOptions, deep_sample
+
+    assert deep_sample(10, GateOptions()) is None
+    s = deep_sample(50, GateOptions())
+    assert s[0] == 0 and s[-1] == 49 and len(s) == 24
+    assert deep_sample(50, GateOptions(profile="typeset")) is None
+
+
+def register_reportlab_font() -> str:
+    from pdfcore.fonts import register_reportlab
+
+    return register_reportlab()["sans"]
