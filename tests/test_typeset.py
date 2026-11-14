@@ -10,7 +10,7 @@ from pdfcore.fonts import templates_dir
 from pdfcore.ops.typeset import contrast, load_brand, make, md_to_typst
 
 EX = templates_dir() / "examples"
-CORE = ["estimate", "invoice", "report", "proposal", "letter", "memo"]
+CORE = ["estimate", "invoice", "report", "proposal", "letter", "memo", "runsheet", "production", "certificate", "booklet", "manuscript", "drawing-sheet"]
 
 
 @pytest.mark.parametrize("name", CORE)
@@ -23,7 +23,8 @@ def test_template_renders_and_passes_gate(tmp_path, name):
     with pdfplumber.open(res.output) as pdf:
         assert pdf.metadata.get("Title")
         text = "\n".join(p.extract_text() or "" for p in pdf.pages)
-    assert "Page 1 of" in text
+    if name not in ("certificate", "booklet", "manuscript", "drawing-sheet"):
+        assert "Page 1 of" in text
 
 
 def test_estimate_totals_exact(tmp_path):

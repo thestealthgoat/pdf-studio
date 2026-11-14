@@ -1,0 +1,23 @@
+title: Week 12 Broadcast — Crew and Gear
+date: 2026-11-15
+facts: {Event: Sunday Night Live, Call: "4:30 PM", "Line check": "5:30 PM", "On air": "6:30 PM"}
+sections:
+  - title: Crew
+    headers: [Position, Name, Call, Channel]
+    widths: ["1.8in", "fr", "0.9in", "0.9in"]
+    rows:
+      - [Producer, Avery Cole, "4:30 PM", "1"]
+      - [Technical director, Riley Park, "4:30 PM", "1"]
+      - [Camera 1 (wide), Morgan Shah, "5:00 PM", "2"]
+      - [Camera 2 (tight), Casey Lin, "5:00 PM", "2"]
+      - [Audio A1, Drew Patel, "4:00 PM", "3"]
+      - [Graphics, Jamie Fox, "5:00 PM", "1"]
+  - title: Gear
+    note: Return all batteries to the charging rack after strike.
+    headers: [Item, Qty, Location, Notes]
+    widths: ["fr", "0.6in", "1.6in", "fr"]
+    rows:
+      - [Camera body + 24–70 lens, "3", Tech closet A, "Cam 3 on jib"]
+      - [Wireless handheld, "2", Audio rack, "Fresh AAs"]
+      - [Headset mic, "1", Audio rack, ""]
+      - [SDI cable 50 ft, "4", Cable bin 2, ""]

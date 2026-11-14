@@ -1,0 +1,19 @@
+size: arch-d
+sheet: E-001
+title: General notes and symbols
+project: Riverside Pump Station Upgrade
+client: Riverside Water Authority
+rev: 1
+date: 2026-10-20
+drawn: ML
+checked: DR
+scale: NONE
+revisions:
+  - {rev: 0, date: "2026-09-15", description: "Issued for bid"}
+  - {rev: 1, date: "2026-10-20", description: "Addendum 1"}
+notes:
+  - All work shall comply with NFPA 70 (NEC) 2023 edition and local amendments.
+  - Control panels shall be UL 508A listed and labeled.
+  - All conductors shall be copper, THHN/THWN-2, 600 V unless noted otherwise.
+  - See E-201 for panel schedules.
+  - Provide arc flash labels per NFPA 70E. See detail 3/E-501.

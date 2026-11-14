@@ -227,7 +227,53 @@ def prepare_generic(data: dict) -> dict:
     return d
 
 
-PREPARE = {"estimate": prepare_estimate, "invoice": prepare_invoice, "proposal": prepare_proposal}
+def prepare_runsheet(data: dict) -> dict:
+    """Compute each row's start time from the event start and the durations (mm:ss or minutes)."""
+    d = prepare_generic(data)
+    start = d.get("start", "00:00")
+    h, m = (int(x) for x in str(start).split(":")[:2])
+    clock = h * 3600 + m * 60
+    rows = []
+    for r in d.get("rows", []):
+        dur = str(r.get("duration", "0"))
+        secs = (int(dur.split(":")[0]) * 60 + int(dur.split(":")[1])) if ":" in dur else int(float(dur) * 60)
+        hh, rem = divmod(clock, 3600)
+        ap = "PM" if hh % 24 >= 12 else "AM"
+        rows.append({**{k: str(v) for k, v in r.items()}, "time": f"{(hh % 12) or 12}:{rem // 60:02d} {ap}",
+                     "duration": f"{secs // 60}:{secs % 60:02d}"})
+        clock += secs
+    d["rows"] = rows
+    d.setdefault("columns", [
+        {"key": "time", "title": "Time", "width": "0.75in"}, {"key": "duration", "title": "Dur", "width": "0.5in", "align": "right"},
+        {"key": "segment", "title": "Segment", "width": "1.9in"}, {"key": "who", "title": "Who", "width": "1.4in"},
+        {"key": "av", "title": "Audio / video", "width": "fr"}, {"key": "notes", "title": "Notes", "width": "fr"},
+    ])
+    d["facts"] = [[k, str(v)] for k, v in (d.get("facts") or {}).items()]
+    return d
+
+
+def prepare_production(data: dict) -> dict:
+    d = prepare_generic(data)
+    d["facts"] = [[k, str(v)] for k, v in (d.get("facts") or {}).items()]
+    for sec in d.get("sections", []):
+        sec["rows"] = [[str(c) for c in r] for r in sec.get("rows", [])]
+        sec.setdefault("widths", ["fr"] * len(sec.get("headers", [])))
+    return d
+
+
+def prepare_drawing(data: dict) -> dict:
+    d = prepare_generic(data)
+    d.setdefault("revisions", [])
+    for r in d["revisions"]:
+        r["date"] = fmt_date(r.get("date", "")) if not isinstance(r.get("date"), str) else r["date"]
+    if d.get("image"):
+        d.setdefault("images", []).append(d["image"])
+        d["image"] = Path(d["image"]).name
+    return d
+
+
+PREPARE = {"estimate": prepare_estimate, "invoice": prepare_invoice, "proposal": prepare_proposal,
+           "runsheet": prepare_runsheet, "production": prepare_production, "drawing-sheet": prepare_drawing}
 
 
 def _jsonable(o: Any):
@@ -297,7 +343,9 @@ def make(
         pdf_bytes = typst.compile(str(root / "main.typ"), **kw)
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(pdf_bytes)
-    o = GateOptions(profile="typeset", margins_in=1.0, min_image_dpi=150, require_metadata=True,
+    margins = {"runsheet": 0.4, "production": 0.45, "certificate": 0.7, "booklet": 0.55, "manuscript": 0.6, "drawing-sheet": 0.45}.get(template, 1.0)
+    o = GateOptions(profile="drawing" if template == "drawing-sheet" else "typeset", margins_in=margins, min_image_dpi=150, require_metadata=True,
+                    allow_blank_pages=template in ("manuscript", "booklet"),
                     png_dir=Path(png_dir) if png_dir else None, png_dpi=110 if png_dir else 60,
                     standard=standard)
     extra = {"total": prepared.get("totals", {}).get("_total")} if "totals" in prepared else {}

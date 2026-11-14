@@ -1,0 +1,13 @@
+title: Sunday Night Live — Week 12
+date: 2026-11-15
+start: "18:30"
+facts: {Venue: Main Auditorium, Doors: "6:00 PM", Producer: Avery Cole, "Call time": "4:30 PM"}
+rows:
+  - {segment: Countdown, duration: "5:00", who: "Video", av: "Countdown loop, house music bed", notes: "House to half at 0:30"}
+  - {segment: Welcome, duration: "3:00", who: "Host — Jordan", av: "Handheld 1, lower third", notes: ""}
+  - {segment: Music set, duration: "18:00", who: "Band", av: "Lyrics on ProPresenter, IMAG cams 1–3", notes: "Click on, 2 songs + transition"}
+  - {segment: Announcements, duration: "4:00", who: "Host — Jordan", av: "Slides A1–A4", notes: "Hold for sponsor bumper"}
+  - {segment: Break, kind: break, duration: "2:00", who: "", av: "Walk-in music", notes: "Reset stage for talk"}
+  - {segment: Talk, duration: "28:00", who: "Speaker — Sam", av: "Headset 2, slides T1–T22", notes: "Timer to stage at 25:00"}
+  - {segment: Closing song, duration: "5:00", who: "Band", av: "Lyrics", notes: ""}
+  - {segment: Dismiss, duration: "1:30", who: "Host — Jordan", av: "Walkout loop", notes: "House to full"}

@@ -59,20 +59,21 @@
 }
 
 // Running header (pages ≥ 2) and footer (all pages).
-#let running(brand, title: "", kind: "", rev: none, date: none) = {
+#let running(brand, title: "", kind: "", rev: none, date: none, hang: true) = {
+  let wrap(x) = if hang { wide(x) } else { block(width: 100%, x) }
   let k = tokens(brand)
   let small(c) = text(font: k.sans, size: 8.5pt, fill: k.muted, c)
   (
     header: context {
       if counter(page).get().first() > 1 {
-        wide({
+        wrap({
           grid(columns: (1fr, auto), small(title), small(kind + if rev != none [ · Rev #rev] else []))
           v(-4pt)
           line(length: 100%, stroke: 0.4pt + k.rule)
         })
       }
     },
-    footer: context wide({
+    footer: context wrap({
       line(length: 100%, stroke: 0.4pt + k.rule)
       v(-4pt)
       grid(
@@ -175,4 +176,41 @@
       stack(spacing: 4pt, small[Signature], text(font: k.sans, size: 9pt, p)), [], small[Date],
     )),
   ))
+}
+
+// Full-width documents (run sheets, production sheets, booklets): no label gutter.
+#let plain-doc(brand: none, title: "", kind: "", author: "", date: none, rev: none, paper: "us-letter",
+  flipped: false, margin: 0.75in, body-size: none, lang: "en", body) = {
+  let k = tokens(brand)
+  let r = running(brand, title: title, kind: kind, rev: rev, date: date, hang: false)
+  set document(title: title, author: if author == "" { brand.name } else { author })
+  set text(font: k.body, size: if body-size == none { k.body-size } else { body-size }, fill: k.ink, lang: lang,
+    hyphenate: false, number-type: "lining")
+  set par(justify: false, leading: 0.72em, spacing: 1.05em)
+  set page(paper: paper, flipped: flipped, margin: margin, header: r.header, footer: r.footer,
+    header-ascent: 0.3in, footer-descent: 0.25in, fill: k.paper)
+  set strong(delta: 300)
+  show heading: set block(sticky: true)
+  show heading.where(level: 1): it => block(above: 1.6em, below: 0.7em,
+    text(font: k.sans, size: 14pt, weight: "semibold", fill: k.primary, it.body))
+  show heading.where(level: 2): it => block(above: 1.3em, below: 0.6em,
+    text(font: k.sans, size: 10pt, weight: "semibold", fill: k.ink, it.body))
+  body
+}
+
+// Compact header band for operational sheets: brand, title, key facts in one row.
+#let sheet-head(brand, kind: "", title: "", facts: ()) = {
+  let k = tokens(brand)
+  grid(columns: (auto, 1fr, auto), align: (left + horizon, left + horizon, right + horizon), column-gutter: 0.15in,
+    if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.36in) } else { [] },
+    stack(spacing: 3pt, label(kind, brand, color: k.primary), text(font: k.sans, size: 14pt, weight: "semibold", title)),
+    text(font: k.sans, size: 8.5pt, fill: k.muted, brand.name))
+  v(0.06in)
+  line(length: 100%, stroke: 0.75pt + k.ink)
+  if facts.len() > 0 {
+    grid(columns: facts.len() * (1fr,), column-gutter: 0.15in, inset: (y: 4pt),
+      ..facts.map(f => stack(spacing: 3pt, label(f.at(0), brand), text(font: k.sans, size: 10pt, str(f.at(1))))))
+    line(length: 100%, stroke: 0.4pt + k.rule)
+  }
+  v(0.1in)
 }
