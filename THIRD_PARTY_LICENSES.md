@@ -24,6 +24,13 @@ package metadata and upstream license file. CI re-checks the installed set on ev
 | Matplotlib | Matplotlib License (PSF-style, permissive) | DXF rendering backend |
 | typst (Python) | Apache-2.0 | typesetting, SVG → PDF |
 | python-docx (+ lxml BSD-3, typing_extensions PSF) | MIT | PDF → Word (`docx` extra) |
+| pyproj (bundles PROJ MIT, libtiff, libjpeg, libwebp, zstd, xz — permissive) | MIT | site plans: coordinate systems (`site` extra) |
+| scikit-image (+ scipy, networkx, imageio, tifffile, lazy-loader — BSD) | BSD-3-Clause | site plans: image classification (`site` extra) |
+
+**Pending decision (site extra only):** scipy's macOS/Linux wheels bundle the GCC runtime (libgfortran, libgcc_s:
+GPL-3.0 with the GCC Runtime Library Exception) and libquadmath (LGPL-2.1), dynamically linked. The core package does
+not depend on them; they arrive only with `pdf-studio[site]`. Shapely was deliberately not used (its wheels bundle
+LGPL GEOS).
 
 Optional, not installed by default: WeasyPrint (BSD-3-Clause), Camelot (MIT), Docling (MIT).
 

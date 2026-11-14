@@ -1,0 +1,90 @@
+# Example job for `pdfcore plans site-add <package> site-job.yaml`
+# Pump-station electrical service: new utility primary from an existing pole, pad-mount transformer,
+# 400 A service to the MCC building, two handholes, two site light poles.
+#
+# Coordinates are feet east (x) / north (y) of the package origin (the centre of the imagery) — written for
+# the Flint WPC demo package (site-fetch --bbox -83.748,43.044,-83.742,43.048). For another site, edit the
+# numbers, or use `coords: latlon` and give [lat, lon] pairs, or `coords: crs` with State Plane feet.
+
+project: Pump Station Electrical Service (demo)
+client: City of Flint WPC
+sheet: E-101
+title: Electrical Site Plan
+view_title: Electrical Site Plan
+scale: auto            # or 1" = 40'
+size: ansi-d
+brand: default         # e.g. bar
+underlay: 25%
+drawn: OS
+coords: local
+defaults:
+  waste: 5             # % added in the takeoff XLSX ("Qty incl. waste")
+
+nodes:
+  UP-1: [-146, -148]   # existing utility pole (OpenStreetMap power=pole) — new riser by utility
+
+items:
+  # transformer on a concrete pad
+  - {type: pad, tag: TXP-1, at: [120, -152], size: [10ft, 12ft], thickness: 8in}
+  - {type: transformer, tag: TX-1, at: TXP-1, size: [6ft, 7ft], label: "500 KVA PAD-MOUNT XFMR 12.47KV-480Y/277V"}
+
+  # pull points
+  - {type: handhole, tag: HH-1, at: [-40, -170], size: [30in, 48in], label: "HANDHOLE 30x48 (TIER 22)"}
+  - {type: handhole, tag: HH-2, at: [150, -112], size: [30in, 48in], label: "HANDHOLE 30x48 (TIER 22)"}
+
+  # service entrance at the MCC building's west wall
+  - {type: switchboard, tag: MSB, at: [174, -80], size: [5ft, 2ft],
+     label: "400A 480Y/277V 3PH 4W SERVICE ENTRANCE MAIN"}
+  - {type: mcc, tag: MCC-1, at: [212, -75], size: [14ft, 2ft], label: "MCC-1 (IN EXIST. PUMP STATION BLDG)"}
+
+  # primary: utility pole → HH-1 → transformer
+  - type: duct_bank
+    tag: DB-1
+    path: [UP-1, [-146, -170], HH-1, [110, -170], TXP-1]
+    conduits: 2
+    size: 4in
+    material: PVC SCH 40
+    trench: {width: 24in, depth: 42in}
+    extra_ft: 30            # pole riser + sweeps
+    label: '2-4" PVC PRIMARY (1 SPARE)'
+  # secondary service: transformer → HH-2 → service entrance
+  - type: duct_bank
+    tag: DB-2
+    path: [TXP-1, [150, -140], HH-2, [150, -80], MSB]
+    conduits: 3
+    size: 3in
+    material: PVC SCH 40
+    trench: {width: 24in, depth: 30in}
+    extra_ft: 16
+    label: '3-3" PVC SERVICE (2 SETS + 1 SPARE)'
+    wire:
+      - {qty: 4, sets: 2, size: 250 KCMIL CU, type: XHHW-2}
+      - {qty: 1, sets: 2, size: "#2 CU GND", type: THWN-2}
+
+  # site lighting
+  - {type: pole, tag: SL-1, at: [70, -128], arm_deg: 0, label: "25' POLE, LED AREA LIGHT 150W"}
+  - {type: pole, tag: SL-2, at: [250, -128], arm_deg: 180, label: "25' POLE, LED AREA LIGHT 150W"}
+  - type: conduit
+    tag: C-1
+    path: [MSB, [174, -128], SL-2]
+    conduits: 1
+    size: 1in
+    material: PVC
+    trench: {width: 12in, depth: 24in}
+    extra_ft: 10
+    wire: [{qty: 3, size: "#10 CU", type: THWN-2}]
+  - type: conduit
+    tag: C-2
+    path: [[174, -128], SL-1]
+    conduits: 1
+    size: 1in
+    material: PVC
+    trench: {width: 12in, depth: 24in}
+    extra_ft: 10
+    wire: [{qty: 3, size: "#10 CU", type: THWN-2}]
+
+  - {type: note, at: [-215, -95], text: "New primary riser on existing pole by utility. Contractor to coordinate.", leader: UP-1}
+
+notes:
+  - Utility to furnish and install primary conductors and transformer; contractor installs pad, conduits and handholes per utility standards.
+  - Duct bank burial depths shown are to top of conduit. Provide warning tape 12 in above conduits.

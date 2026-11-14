@@ -22,7 +22,7 @@ from typing import Callable
 
 from pdfcore.ops import command
 
-SUBMODULES = ["sheets", "measure", "cad", "issue"]
+SUBMODULES = ["sheets", "measure", "cad", "issue", "site"]
 
 
 @dataclass

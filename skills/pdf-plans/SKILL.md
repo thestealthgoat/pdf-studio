@@ -66,6 +66,21 @@ pdfcore make drawing-sheet sheet.yaml                   # blank sheet with title
 DWG R2000–R2018 is read natively (pure Python, no ODA/LibreDWG); MLINE, multileaders, tables, ACIS solids and
 images inside DWGs are skipped and reported. Writing DWG needs the ODA File Converter (user-installed).
 
+## Site plans from imagery
+
+```bash
+pdfcore plans site-fetch --address "…" --size 600ft     # or --center lat,lon / --bbox w,s,e,n → package folder (USGS NAIP + OSM, State Plane ft)
+pdfcore plans site-from-image shot.png [--calibrate x0,y0,x1,y1=250ft | --georef 'px,py=lat,lon' ×2 | (reads a scale bar)]
+pdfcore plans site-extract site-…/ [--method both|classic|osm]  # buildings, roads, pavement, trees, water → extracted.geojson + preview
+pdfcore plans site-plan site-…/ --size ansi-d --brand bar [--scale 1"=40'] [--underlay 25%]   # PDF + layered DXF, /Measure
+pdfcore plans site-add site-…/ job.yaml                 # proposed pads/duct banks/poles → job plan + DXF + takeoff XLSX
+#   example: pdfcore/ops/plans/examples/site-job.yaml (coordinates = feet east/north of the image centre)
+```
+
+Check `extract-preview.png` and the sheet: imagery features are approximate (not a survey). Keep the automatic
+attribution ("© OpenStreetMap contributors", "Imagery: USGS/NAIP"). Never fetch Google/Bing/Apple imagery; a Google
+Earth screenshot is input for reference only (Google's terms restrict tracing it) — deliverables use `site-fetch`.
+
 ## Drawing rules (for anything you produce)
 
 - Line weights by element type; text at least 3/32 in (≈ 7 pt) at printed size, notes 1/8 in.

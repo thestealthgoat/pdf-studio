@@ -26,6 +26,8 @@ pdfcore redact contract.pdf --pattern ssn --pattern phone
 pdfcore compare rev1.pdf rev2.pdf
 pdfcore ocr scan.pdf
 pdfcore gate output.pdf -v
+pdfcore convert drawing.dwg --to pdf          # any format → any format (pdfcore convert --list)
+pdfcore plans site-fetch --address "…"        # aerial imagery + OpenStreetMap → site plan (pip install 'pdf-studio[site]')
 ```
 
 Every op writes a **new file next to the input** (never overwrites) and finishes with the quality gate:
