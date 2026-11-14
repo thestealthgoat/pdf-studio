@@ -27,6 +27,7 @@ listed below with its URL and license before use.
 | File | Source URL | License |
 |---|---|---|
 | flint_wpc_electrical_2023.pdf | https://www.cityofflint.com/wp-content/uploads/2023/07/Flint_WPC-Electrical-Distribution-Improvements-Drawing-Plans-July-7-2023-1.pdf (City of Flint public bid posting, 50 sheets ANSI D) | Public bid document; local testing only, not redistributed |
+| flint_wpc_electrical_2023_rev1_synthetic.pdf | derived locally from the Flint set: added boxes+notes on sheets 6, 21, 31; a text block truly removed on sheet 11 (known edits for compare tests) | local testing only |
 | flint_addendum01_plan_set.pdf | https://www.cityofflint.com/wp-content/uploads/2023/07/20230710_COF107701F_Addendum-01_Plan-Set.pdf (City of Flint public posting, 30 sheets, different project; mirrored text on sheet 1) | Public bid document; local testing only, not redistributed |
 
 Private BAR / TFC samples belong in `pdf-studio-local/corpus/private/` only — never here.
