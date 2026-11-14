@@ -31,6 +31,17 @@ plain NumPy (`pdfcore/ops/plans/site/raster.py`); scikit-image, SciPy and Shapel
 
 Optional, not installed by default: WeasyPrint (BSD-3-Clause), Camelot (MIT), Docling (MIT).
 
+## Standalone `pdfcore` sidecar (BAR Estimating)
+
+The sidecar zips (`pdfcore-<ver>-<target>.zip`) bundle only pdfcore's word extractor, pypdfium2/PDFium and the
+CPython runtime; each zip carries its own generated `THIRD_PARTY_LICENSES.md` with the full license texts of
+everything in it (`tools/build_sidecar.py`). NumPy, Pillow and the other libraries above are not bundled.
+
+| Component | License | Used for |
+|---|---|---|
+| Nuitka 2.8.10 (`build` extra) | Apache-2.0 (compiler and the runtime helpers compiled into the program) | builds the sidecar; **pinned** — Nuitka ≥ 4.0 is AGPL-3.0 with a runtime exception |
+| jsonschema (`dev` extra; + referencing, rpds-py, attrs, jsonschema-specifications — MIT) | MIT | validates `pdfcore-words/1` output in tests |
+
 ## External programs (called as separate processes, not linked)
 
 | Program | License | Used for |

@@ -1,0 +1,117 @@
+name: sidecar
+
+# Standalone `pdfcore` sidecar for BAR Estimating (integration contract §2, §3, §6).
+# Builds one self-contained --onedir folder per target with Nuitka 2.8.x (Apache-2.0), tests the built
+# program, measures size and cold start, and on a `v*` tag attaches the zips, SHA256SUMS and the schema to
+# the GitHub release (creating the release if it doesn't exist yet; re-runs replace the assets).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14          # Apple silicon
+            target: darwin-arm64
+            exe: pdfcore
+          - os: windows-latest
+            target: win32-x64
+            exe: pdfcore.exe
+    env:
+      PYTHONUTF8: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (runtime + dev + build extras; sign builds the signed corpus fixture)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,build,sign]"
+
+      - name: License audit (packages + bundled native libraries)
+        run: python tools/license_audit.py
+
+      - name: Version
+        id: ver
+        run: |
+          VER=$(python -c "from pdfcore import __version__; print(__version__)")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "name=pdfcore-$VER-${{ matrix.target }}" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$VER" ]]; then
+            echo "::error::tag ${GITHUB_REF#refs/tags/} does not match pdfcore.__version__ $VER"; exit 1
+          fi
+
+      - name: Build sidecar (Nuitka standalone)
+        run: python tools/build_sidecar.py --jobs 4
+
+      - name: Sidecar tests against the built program
+        env:
+          PDFCORE_SIDECAR_BIN: ${{ github.workspace }}/dist/${{ steps.ver.outputs.name }}/${{ matrix.exe }}
+        run: pytest tests/test_sidecar.py -p no:cacheprovider -v -rsx
+
+      - name: Smoke test the zip (fresh unpack to a path with spaces + non-ASCII; size; cold/warm start; no stray writes)
+        run: python tools/sidecar_smoke.py "dist/${{ steps.ver.outputs.name }}.zip" --cold-budget 2 --size-budget 80
+
+      - name: Build report
+        run: cat "dist/${{ steps.ver.outputs.name }}.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.ver.outputs.name }}
+          path: |
+            dist/${{ steps.ver.outputs.name }}.zip
+            dist/${{ steps.ver.outputs.name }}.json
+          if-no-files-found: error
+
+  release:
+    name: attach to release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest   # only shuffles files; nothing is built or run here
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Collect assets + SHA256SUMS
+        id: assets
+        run: |
+          VER="${GITHUB_REF#refs/tags/v}"
+          mkdir release
+          cp "artifacts/pdfcore-$VER-darwin-arm64.zip" "artifacts/pdfcore-$VER-win32-x64.zip" release/
+          cp schemas/pdfcore-words-1.schema.json release/
+          (cd release && sha256sum pdfcore-$VER-darwin-arm64.zip pdfcore-$VER-win32-x64.zip pdfcore-words-1.schema.json > SHA256SUMS)
+          cat release/SHA256SUMS
+          ls -la release
+
+      - name: Upload to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "pdfcore sidecar $TAG (see CHANGELOG.md)."
+          fi
+          gh release upload "$TAG" release/* --clobber

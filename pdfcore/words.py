@@ -287,11 +287,12 @@ def words_document(path: str | Path, *, pages: Iterable[int] | None = None, pass
         data = p.read_bytes()
     except FileNotFoundError:
         raise WordsError("NotPdf", f"file not found: {p}")
+    except OSError as exc:  # permission denied, a folder, a device error …
+        raise WordsError("NotPdf", f"can't read the file ({exc.strerror or exc})")
     if len(data) > max_mb * 1e6:
         raise WordsError("TooLarge", f"{len(data) / 1e6:.0f} MB exceeds the {max_mb:g} MB limit")
     if b"%PDF" not in data[:1024]:
         raise WordsError("NotPdf", "not a PDF file (no %PDF header)")
-    encrypted = b"/Encrypt" in data[-65536:] or b"/Encrypt" in data[:65536]
     try:
         pdf = pdfium.PdfDocument(data, password=password)
     except pdfium.PdfiumError as exc:
@@ -300,8 +301,11 @@ def words_document(path: str | Path, *, pages: Iterable[int] | None = None, pass
             raise WordsError("Encrypted", "the PDF is password-protected")
         raise WordsError("Damaged", f"the PDF can't be read ({msg})")
     try:
+        import pypdfium2.raw as pdfium_c
+
+        encrypted = pdfium_c.FPDF_GetSecurityHandlerRevision(pdf.raw) != -1  # exact, unlike scanning for /Encrypt
         n = len(pdf)
-        idx = list(range(n)) if pages is None else [i for i in pages if 0 <= i < n]
+        idx = list(range(n)) if pages is None else sorted({i for i in pages if 0 <= i < n})
         page_rows, word_rows, any_text = [], [], False
         for pi in idx:
             if timeout is not None and time.monotonic() - t0 > timeout:

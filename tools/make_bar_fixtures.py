@@ -53,7 +53,7 @@ def estimate(path: Path, *, number: str, date: str, expires: str, items: list[tu
         R, B = F["sans"], F["sans-bold"]
     else:  # standard-14 Helvetica, not embedded — exercises readers that rely on built-in metrics
         R, B = "Helvetica", "Helvetica-Bold"
-    c = canvas.Canvas(str(path), pagesize=letter)
+    c = canvas.Canvas(str(path), pagesize=letter, invariant=1)  # no timestamps or random IDs: reproducible bytes
     c.setTitle(f"Estimate {number}")
     c.setAuthor(COMPANY["name"])
     W, H = letter

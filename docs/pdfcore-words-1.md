@@ -65,8 +65,11 @@ Within a block: lines by `(top, x0)`; within a line: words by `x0`. `block` = po
 `line` = running index over lines in that order. Both 0-based per page.
 
 ## 7. Output
-- `words` in that reading order, page by page. Numbers rounded to 0.01 (`-0` written as `0`).
+- `pages` / `words` cover all pages, or the selected pages in ascending order without duplicates (out-of-range
+  indexes are ignored). `words` are in reading order, page by page. Numbers rounded to 0.01 (`-0` written as `0`).
 - `source.hasTextLayer` = at least one word on the processed pages. `source.encrypted` = the file has an
-  `/Encrypt` dictionary (owner-password-only files are still processed; user-password files fail with `Encrypted`).
+  security handler (PDFium `FPDF_GetSecurityHandlerRevision ≠ −1`; owner-password-only files are still processed; user-password files fail with `Encrypted`).
 - Serialisation: UTF-8, no BOM, LF, compact separators, keys in schema order, trailing newline — byte-identical for
   the same input and version.
+- Error codes: `NotPdf` (missing, unreadable, or no `%PDF` header in the first 1024 bytes), `TooLarge` (over the
+  size limit, default 1024 MB), `Encrypted` (needs a user password), `Damaged` (PDFium can't open it), `Timeout`.

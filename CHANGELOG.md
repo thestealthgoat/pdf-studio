@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.0 — BAR integration: words/1 + standalone sidecar, Windows support (2026-11-14)
+- **`pdfcore-words/1`** (`pdfcore/words.py`): word-level JSON with positions for BAR Estimating. JSON Schema in
+  `schemas/`, exact rules in `docs/pdfcore-words-1.md` (loose glyph boxes, CropBox-origin after /Rotate, ligatures +
+  NFC, 0.2·size word gap, horizontal-first XY-cut so tables read row by row), byte-deterministic output.
+- **BAR fixtures** (`fixtures/bar/`): four invented QuickBooks-style estimates with expected JSON, reproducible bytes.
+- **Standalone sidecar** (`pdfcore/sidecar.py`, `tools/build_sidecar.py`, `.github/workflows/sidecar.yml`):
+  `pdfcore text <in> --level words --format json -o <out>` for darwin-arm64 and win32-x64, built with Nuitka 2.8.10
+  (Apache-2.0; 4.x is AGPL and is refused). Exit codes 0/1/2/3 with one JSON line on stderr, atomic output, no
+  network, watchdog timeout, ~13.5 MB zipped, ~0.5 s cold start. Release assets: zips, schema, `SHA256SUMS`.
+- **Windows support**: CI on windows-latest, tool discovery in Program Files, UTF-8 console and file I/O.
+- **Native DWG writer** (R2000) and **PDF repair** chain (qpdf → pypdf → pdfium → raw-object salvage).
+
 ## v0.4.1 — BAR-safe site plans, deeper license audit (2026-11-13)
 - Site plans run on numpy only: scikit-image and SciPy removed (their wheels bundled LGPL libquadmath).
   The `site` extra is now pyproj only. Same accuracy (building IoU 0.968, road centerlines ≤ 0.2 m median),
