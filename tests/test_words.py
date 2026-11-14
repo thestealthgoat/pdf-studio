@@ -48,7 +48,13 @@ def test_bar_fixture_matches_expected(pdf, validator):
     doc = words_document(pdf, version="0.0.0")
     validator.validate(doc)
     expected = pdf.with_suffix("").with_suffix(".words.json")
-    assert dumps(doc) == expected.read_text(encoding="utf-8"), "regenerate with tools/make_bar_fixtures.py if intended"
+    want = expected.read_text(encoding="utf-8")
+    if dumps(doc) != want:
+        exp = json.loads(want)
+        diff = [(a, b) for a, b in zip(doc["words"], exp["words"]) if a != b][:3]
+        pytest.fail(f"differs from {expected.name} (regenerate with tools/make_bar_fixtures.py if intended): "
+                    f"words {len(doc['words'])} vs {len(exp['words'])}, pages {doc['pages'] == exp['pages']}, "
+                    f"first diffs got/want: {diff}")
 
 
 def test_output_is_deterministic_bytes(corpus):
