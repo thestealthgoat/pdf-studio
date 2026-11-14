@@ -1,0 +1,35 @@
+title: Pump Control Modernization
+subtitle: Design, build and commission a new control panel and drives
+number: P-2026-031
+date: 2026-11-13
+author: Morgan Lee
+client: {name: Riverside Water Authority}
+summary: >-
+  We propose to design, build and commission a UL 508A control panel with two variable-frequency
+  drives for the Riverside pump station, finishing within ten weeks of the order and a two-day shutdown.
+sections:
+  - title: Understanding
+    body: |
+      The station's relay controls and starters are obsolete and undocumented. Pressure surges at pump
+      start stress the piping, and the main panel has no surge protection.
+  - title: Approach
+    body: |
+      We build and test the panel in our UL 508A shop, so site work is limited to a two-day shutdown.
+
+      - Factory acceptance test witnessed by your operators.
+      - Drives configured for soft start and stop, ending the pressure surges.
+      - As-built drawings and a one-page operator guide at handover.
+timeline:
+  - {phase: Design and submittals, start: Week 1, duration: 3 weeks}
+  - {phase: Procurement (drives), start: Week 2, duration: 6 weeks}
+  - {phase: Panel build and FAT, start: Week 5, duration: 3 weeks}
+  - {phase: Installation and startup, start: Week 9, duration: 2 days}
+pricing:
+  currency: USD
+  items:
+    - {description: Control panel CP-1, amount: 19525}
+    - {description: Drives and field work, amount: 35432}
+    - {description: Engineering and startup, amount: 9410}
+  note: Sales tax on materials is additional. Detailed estimate E-2026-0147 attached.
+terms:
+  - "Valid 30 days. Net 30; 30% deposit with order."

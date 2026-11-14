@@ -1,0 +1,29 @@
+# Brand tokens — neutral default. Copy this file to make a brand (e.g. bar.toml, tfc.toml).
+# Colors are checked on load: ink, muted and primary must reach 4.5:1 contrast on paper,
+# and white text on primary must reach 4.5:1.
+
+name = "Studio Default"
+legal_name = "Studio Default"
+tagline = ""
+address = ["100 Example Street", "Springfield, ST 00000"]
+phone = "(555) 010-0100"
+email = "hello@example.com"
+web = "example.com"
+logo = "logos/default.svg"      # vector (SVG) preferred; relative to templates/brands/
+
+[colors]
+ink = "#1b2129"        # body text
+muted = "#55606e"      # secondary text, labels
+primary = "#1d4a6e"    # headings, title rule, accents
+accent = "#b4532a"     # sparing highlights (e.g. "DRAFT", due-date)
+rule = "#c7cfd8"       # hairlines
+zebra = "#f2f4f7"      # table row fill (used only when rules are off)
+paper = "#ffffff"
+
+[fonts]
+sans = "Inter"
+serif = "Source Serif 4"
+body = "serif"         # "serif" or "sans" for running text
+
+[print]
+cmyk = false           # true when sending to a print shop (converted at export)

@@ -1,0 +1,16 @@
+to: [Field crew, Shop]
+from: Morgan Lee
+cc: [Project file]
+date: 2026-11-13
+subject: Riverside shutdown — two-day plan
+body: |
+  The owner has approved a two-day shutdown on **December 8–9**. The panel must pass factory test
+  by December 1 so the crew can load the truck on December 5.
+
+  ## Day 1
+  - Lock out the MDP feeder to CP-1 at 7:00 a.m.; owner operator present.
+  - Remove the old panel and set the new one; pull new feeders to both drives.
+
+  ## Day 2
+  - Terminate, test insulation resistance, energize, run both pumps on the drives.
+  - Train operators before 3:00 p.m.

@@ -1,0 +1,55 @@
+title: Pump Station Electrical Condition Assessment
+subtitle: Findings and recommended upgrades
+author: Morgan Lee, P.E.
+client: Riverside Water Authority
+date: 2026-11-13
+rev: "A"
+summary: >-
+  The station's 1987 motor control equipment is at end of life. We recommend replacing panel CP-1
+  with a UL 508A panel and two variable-frequency drives, adding surge protection at the main
+  distribution panel, and labeling all equipment for arc flash. The work fits in a two-day shutdown.
+body: |
+  # Background
+  Riverside Pump Station lifts raw water from the intake to the treatment plant. Two 75 HP pumps run
+  across-the-line from a 1987 motor control center. Operators report nuisance trips in summer and
+  difficulty finding spare parts for the starters and the relay logic.
+
+  The assessment covered the service entrance, the main distribution panel (MDP), panel LP-1, the
+  pump control panel CP-1 and the field wiring to both pumps.
+
+  # Findings
+  ## Service and distribution
+  The 1500 kVA service transformer and the 2000 A MDP are in good condition and have spare capacity.
+  The MDP has **no surge protective device**, and the station has lost two PLC power supplies to
+  lightning-induced surges since 2022.
+
+  ## Pump controls
+  - Starters are obsolete; replacement contactors are no longer stocked.
+  - Relay logic has no documentation that matches the field wiring.
+  - Across-the-line starting causes pressure surges that stress the discharge piping.
+
+  ## Safety
+  No equipment carries arc-flash labels. NFPA 70E requires them for equipment that may be examined,
+  adjusted or serviced while energized.
+
+  # Recommendations
+  1. Replace CP-1 with a UL 508A panel with a PLC and operator interface.
+  2. Add a 75 HP variable-frequency drive for each pump, with line reactors.
+  3. Install a surge protective device at the MDP.
+  4. Complete an arc-flash study and label all equipment.
+
+  ## Budget
+  #wide(table(
+    columns: (1fr, 1.3in),
+    align: (left, right),
+    stroke: (x, y) => if y == 0 { (bottom: 0.75pt) } else { (bottom: 0.4pt + luma(200)) },
+    table.header([*Item*], [*Budget (USD)*]),
+    [Control panel CP-1], [19,525.00],
+    [Drives and field work], [35,432.00],
+    [Engineering and startup], [9,410.00],
+    [*Total before tax*], [*64,367.00*],
+  ))
+
+  # Next steps
+  With approval, final design can be issued in three weeks and the work completed within ten weeks
+  of the order, including drive lead times.

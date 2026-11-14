@@ -437,7 +437,13 @@ def _heading_at_foot(page, pi: int, body: float) -> list[Finding]:
     if len(body_words) < 6:
         return []
     last_bottom = max(w["bottom"] for w in body_words)
-    last_line = [w for w in body_words if abs(w["bottom"] - last_bottom) < 2]
+    last_line = sorted([w for w in body_words if abs(w["bottom"] - last_bottom) < 2], key=lambda w: w["x0"])
+    left_edge = min(w["x0"] for w in body_words)
+    # Headings start at a left text edge and are not numeric rows (table subtotals, totals).
+    starts_left = last_line[0]["x0"] - left_edge < 3 or any(abs(last_line[0]["x0"] - w["x0"]) < 1 for w in body_words if w is not last_line[0] and w["bottom"] < last_bottom - 20)
+    numeric = re.search(r"\d[\d,]*\.\d{2}\b|\d{2,}$", " ".join(w["text"] for w in last_line))
+    if not starts_left or numeric:
+        return []
     size = max(float(w["size"]) for w in last_line)
     boldish = all("bold" in str(w.get("fontname", "")).lower() or "semibold" in str(w.get("fontname", "")).lower() for w in last_line)
     if (size >= body * 1.15 or boldish) and len(last_line) <= 10 and last_bottom > H * 0.7:

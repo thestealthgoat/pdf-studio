@@ -1,0 +1,20 @@
+number: INV-2026-0418
+date: 2026-11-13
+due_days: 30
+po: PO 55120
+title: Progress billing 1 of 3
+currency: USD
+client:
+  name: Riverside Water Authority
+  attn: Accounts Payable
+  address: ["18 Harbor Street", "Springfield, ST 00000"]
+project: {name: Riverside Pump Station Upgrade, ref: "Estimate E-2026-0147"}
+sections:
+  - name: Progress
+    items:
+      - {code: "1", description: "Deposit on acceptance (30% of contract)", qty: 1, unit: ls, unit_price: 20409.74}
+      - {code: "2", description: "Design and submittals, complete", qty: 1, unit: ls, unit_price: 3200}
+adjustments:
+  - {label: "Payment received, Nov 2", amount: -20409.74}
+remit: ["Studio Default", "Remittance details on file — contact accounts@example.com"]
+terms: ["Net 30. 1.5% per month on balances past due."]

@@ -1,0 +1,19 @@
+date: 2026-11-13
+recipient:
+  name: Dana Ruiz, P.E.
+  title: Utilities Engineer
+  org: Riverside Water Authority
+  address: ["18 Harbor Street", "Springfield, ST 00000"]
+subject: Bid 26-114 — acknowledgment of Addendum 1
+salutation: "Dear Ms. Ruiz,"
+body: |
+  Thank you for issuing Addendum 1 for the Riverside Pump Station Upgrade. We acknowledge its
+  receipt, and our bid includes the surge protective device at the main distribution panel and the
+  revised exhaust fan rating shown on sheet E-001.
+
+  We have also confirmed with the drive manufacturer that the 75 HP units can ship within six
+  weeks of order, which keeps installation inside the two-day shutdown the bid allows.
+
+  Please call me if you have any questions about our submittal.
+signer: {name: Morgan Lee, title: Estimator}
+enclosures: ["Bid form", "Addendum 1 acknowledgment"]
