@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1 — BAR-safe site plans, deeper license audit (2026-11-13)
+- Site plans run on numpy only: scikit-image and SciPy removed (their wheels bundled LGPL libquadmath).
+  The `site` extra is now pyproj only. Same accuracy (building IoU 0.968, road centerlines ≤ 0.2 m median),
+  ~30% faster extraction.
+- License audit also scans every bundled native library (.so/.dylib/.dll) in installed wheels against a license
+  table: GCC runtime exception allowed; LGPL, GPL and unknown libraries fail CI.
+- macOS is the only supported platform for CI and the installer (no Linux target).
+
 ## v0.4.0 — conversions, native DWG, site plans (2026-11-13)
 - **`pdfcore convert`**: one front door for every format pair — images (PNG/JPG/TIFF/GIF/BMP/WebP/AVIF/JP2/HEIC),
   SVG, DXF/DWG/PLT, Markdown, text, HTML, Office → PDF; PDF → images, SVG, DXF, DWG (with a writer), Word,
