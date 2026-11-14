@@ -118,6 +118,43 @@ class PlumberText:
         return out
 
 
+class OdaDwg:
+    """ODA File Converter (external program, free download, own license — never bundled)."""
+
+    name = "oda"
+    CANDIDATES = [
+        "/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter",
+        "/usr/bin/ODAFileConverter",
+        "C:/Program Files/ODA/ODAFileConverter/ODAFileConverter.exe",
+    ]
+
+    def exe(self) -> str | None:
+        import shutil
+
+        return shutil.which("ODAFileConverter") or next((c for c in self.CANDIDATES if Path(c).exists()), None)
+
+    def installed(self) -> bool:
+        return self.exe() is not None
+
+    def to_dxf(self, src: Path, out_dir: Path, version: str = "ACAD2018") -> Path:
+        import shutil
+        import subprocess
+        import tempfile
+
+        exe = self.exe()
+        if not exe:
+            raise RuntimeError("ODA File Converter not installed")
+        with tempfile.TemporaryDirectory() as tin:
+            shutil.copy(src, Path(tin) / src.name)
+            subprocess.run([exe, tin, str(out_dir), version, "DXF", "0", "1", src.name], check=True,
+                           capture_output=True, timeout=600)
+        out = Path(out_dir) / (src.stem + ".dxf")
+        if not out.exists():
+            raise RuntimeError(f"ODA File Converter produced no DXF for {src.name}")
+        return out
+
+
 def register(reg) -> None:
     reg("render", "pdfium", PdfiumRender, default=True, source="pdf-studio")
     reg("text", "pdfplumber", PlumberText, default=True, source="pdf-studio")
+    reg("dwg", "oda", OdaDwg, default=False, source="pdf-studio")

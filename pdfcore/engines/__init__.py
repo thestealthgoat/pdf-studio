@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from importlib.metadata import entry_points
 from typing import Any, Callable
 
-KINDS = ("render", "text")
+KINDS = ("render", "text", "dwg")
 
 
 @dataclass
@@ -81,3 +81,22 @@ def get(kind: str, name: str | None = None) -> Any:
     if key not in _cache:
         _cache[key] = entries[name].factory()
     return _cache[key]
+
+
+def dwg_converter():
+    """First installed DWG→DXF converter: $PDFCORE_DWG_ENGINE, else ODA (if installed), else any other
+    registered converter (e.g. LibreDWG from the local edition). Raises with install advice if none."""
+    _load()
+    name = os.environ.get("PDFCORE_DWG_ENGINE")
+    if name:
+        return get("dwg", name)
+    order = sorted(_REG["dwg"], key=lambda n: (n != "oda", n))
+    for n in order:
+        conv = get("dwg", n)
+        if getattr(conv, "installed", lambda: True)():
+            return conv
+    raise RuntimeError(
+        "No DWG converter installed. Options: install the free ODA File Converter "
+        "(opendesign.com/guestfiles/oda_file_converter — accept its terms yourself), or the private "
+        "local edition (LibreDWG). Or export DXF from your CAD program and use dxf2pdf."
+    )
