@@ -1,4 +1,4 @@
-"""Classify site imagery and vectorize it (classical computer vision, numpy + scikit-image).
+"""Classify site imagery and vectorize it (classical computer vision in numpy; primitives in ``raster``).
 
 Pipeline (``method="classic"``)
 --------------------------------
@@ -34,17 +34,10 @@ from typing import Any, Sequence
 import numpy as np
 
 from pdfcore.ops.plans.site import geom
+from pdfcore.ops.plans.site import raster as rs
 from pdfcore.ops.plans.site.geo import Georef, SitePackage, feature
 
 METHODS = ("classic", "osm", "both", "sam")
-
-
-def _need_skimage():
-    try:
-        import scipy  # noqa: F401
-        import skimage  # noqa: F401
-    except ImportError as exc:  # pragma: no cover
-        raise ImportError("site-extract needs scikit-image: pip install 'pdf-studio[site]'") from exc
 
 
 # ----------------------------------------------------------------------------- per-pixel cues
@@ -66,14 +59,11 @@ class Cues:
 
 def cues(rgb: np.ndarray, ft_per_px: float, work_ft: float = 0.5) -> tuple[Cues, float]:
     """Working-resolution cues; returns (cues, factor) with factor = working px per input px."""
-    from scipy import ndimage as ndi
-    from skimage.transform import rescale
-
     img = rgb.astype(np.float32) / 255.0 if rgb.dtype == np.uint8 else rgb.astype(np.float32)
     k = 1.0
     if ft_per_px < work_ft:
         k = ft_per_px / work_ft
-        img = rescale(img, k, channel_axis=2, anti_aliasing=True, preserve_range=True).astype(np.float32)
+        img = rs.rescale(img, k)
     s = ft_per_px / k
     # global linear stretch on luminance (same gain for all channels keeps chroma): hazy imagery → full range
     L0 = 0.299 * img[..., 0] + 0.587 * img[..., 1] + 0.114 * img[..., 2]
@@ -86,40 +76,28 @@ def cues(rgb: np.ndarray, ft_per_px: float, work_ft: float = 0.5) -> tuple[Cues,
     S = (mx - mn) / (mx + 1e-4)
     exg = (2 * g - r - b) / (r + g + b + 1e-4)
     w = max(3, int(round(5.0 / s)) | 1)
-    m1 = ndi.uniform_filter(L, w)
-    m2 = ndi.uniform_filter(L * L, w)
+    m1 = rs.uniform_filter(L, w)
+    m2 = rs.uniform_filter(L * L, w)
     tex = np.sqrt(np.maximum(m2 - m1 * m1, 0))
     return Cues(img, s, L, S, exg, tex), k
 
 
 def _otsu(v: np.ndarray, lo: float, hi: float, default: float) -> float:
-    from skimage.filters import threshold_otsu
-
     v = v[np.isfinite(v)]
     if v.size < 100 or v.std() < 1e-3:
         return default
     try:
-        return float(np.clip(threshold_otsu(v), lo, hi))
+        return float(np.clip(rs.threshold_otsu(v), lo, hi))
     except Exception:
         return default
 
 
 def _disk(r: float):
-    from skimage.morphology import disk
-
-    return disk(max(1, int(round(r))))
+    return rs.disk(max(1, int(round(r))))
 
 
 def _remove_small(m: np.ndarray, min_px: float) -> np.ndarray:
-    from scipy import ndimage as ndi
-
-    lab, n = ndi.label(m)
-    if n == 0:
-        return m
-    sizes = np.bincount(lab.ravel())
-    keep = sizes >= min_px
-    keep[0] = False
-    return keep[lab]
+    return rs.remove_small(m, min_px)
 
 
 # ----------------------------------------------------------------------------- classification
@@ -146,12 +124,10 @@ class Classified:
 def _sun_direction(c: Cues, canopy: np.ndarray, shadow: np.ndarray) -> tuple[tuple[float, float] | None, float]:
     """Unit vector (drow, dcol) from objects to their shadows: the offset (8–16 ft) at which shadow most
     often follows lit tree canopy."""
-    from scipy import ndimage as ndi
-
     H, W = canopy.shape
     if canopy.sum() < c.px2(1500):
         return None, 0.0
-    canopy_d = ndi.binary_dilation(canopy, iterations=1)
+    canopy_d = rs.binary_dilation(canopy)
     scores = np.zeros(16)
     for ft in (8.0, 12.0, 16.0):
         k = max(2, int(round(c.px(ft))))
@@ -177,14 +153,12 @@ def _sun_direction(c: Cues, canopy: np.ndarray, shadow: np.ndarray) -> tuple[tup
 def _sun_from_regions(c: Cues, labels: np.ndarray, shadow: np.ndarray) -> tuple[tuple[float, float] | None, float]:
     """Shadow direction from compact, rectangular, lit regions (roofs and pavement alike): roofs cast their
     shadow on one side, so the summed directional shadow adjacency peaks there."""
-    from scipy import ndimage as ndi
-
     H, W = labels.shape
     sizes = np.bincount(labels.ravel())
     k = max(2, int(round(c.px(5.0))))
     scores = np.zeros(16)
     used = 0
-    slices = ndi.find_objects(labels)
+    slices = rs.find_objects(labels)
     order = np.argsort(-sizes)
     for i in order[1:400]:
         if sizes[i] < c.px2(250) or sizes[i] > c.px2(60000) or slices[i - 1] is None:
@@ -220,9 +194,7 @@ def _sun_from_regions(c: Cues, labels: np.ndarray, shadow: np.ndarray) -> tuple[
 
 def _region_shapes(mask: np.ndarray) -> tuple[float, float, float, float]:
     """(fill of min rectangle, rectilinearity, long side px, short side px) of a region mask."""
-    from skimage import measure
-
-    cs = measure.find_contours(np.pad(mask, 1).astype(float), 0.5)
+    cs = rs.find_contours(np.pad(mask, 1).astype(float), 0.5)
     if not cs:
         return 0.0, 0.0, 0.0, 0.0
     ring = [(p[1], p[0]) for p in max(cs, key=len)]
@@ -238,13 +210,6 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
              building_hint: np.ndarray | None = None, regions: np.ndarray | None = None,
              work_ft: float = 0.5) -> tuple[Classified, float]:
     """Classify an RGB image. Hints are bool masks in *input* pixels. Returns (Classified, factor)."""
-    _need_skimage()
-    from scipy import ndimage as ndi
-    from skimage import graph as skgraph
-    from skimage.morphology import skeletonize
-    from skimage.segmentation import felzenszwalb
-    from skimage.transform import resize
-
     c, k = cues(rgb, ft_per_px, work_ft)
     H, W = c.L.shape
 
@@ -252,27 +217,27 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
         if m is None:
             return None
         if m.shape != (H, W):
-            m = resize(m.astype(float), (H, W), order=0) > 0.5
+            m = rs.resize_nearest(m.astype(bool), (H, W))
         return m
 
     road_hint, building_hint = hint(road_hint), hint(building_hint)
     if regions is not None:
-        regions = resize(regions, (H, W), order=0, preserve_range=True, anti_aliasing=False).astype(np.int64)
+        regions = rs.resize_nearest(regions, (H, W)).astype(np.int64)
     st: dict[str, Any] = {"work_ft_per_px": c.s, "size_px": [W, H]}
 
     # --- vegetation
     t_veg = _otsu(c.exg[(c.exg > -0.15) & (c.exg < 0.6)], 0.035, 0.12, 0.06)
     st["t_veg"] = t_veg
     veg0 = (c.exg > t_veg) & (c.L < 0.8)
-    veg = ndi.binary_closing(veg0, _disk(c.px(2.0)))
-    veg = ndi.binary_opening(veg, _disk(c.px(1.0)))
+    veg = rs.binary_closing(veg0, _disk(c.px(2.0)))
+    veg = rs.binary_opening(veg, _disk(c.px(1.0)))
     veg = _remove_small(veg, c.px2(60))
     t_tex = _otsu(c.tex[veg], 0.03, 0.08, 0.05) if veg.sum() > 200 else 0.05
     dark_green = c.L < (np.median(c.L[veg]) - 0.1 if veg.sum() > 200 else 0.2)
     tree_px = veg & ((c.tex > t_tex) | dark_green)
-    tree_frac = ndi.gaussian_filter(tree_px.astype(np.float32), c.px(4.0))
+    tree_frac = rs.gaussian_filter(tree_px.astype(np.float32), c.px(4.0))
     trees = veg & (tree_frac > 0.5)
-    trees = ndi.binary_closing(trees, _disk(c.px(3.0))) & ndi.binary_dilation(veg, _disk(c.px(1.0)))
+    trees = rs.binary_closing(trees, _disk(c.px(3.0))) & rs.binary_dilation(veg, _disk(c.px(1.0)))
     trees = _remove_small(trees, c.px2(150))
     grass = veg & ~trees
     grass = _remove_small(grass, c.px2(200))
@@ -286,14 +251,14 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
     r, g, b = c.img[..., 0], c.img[..., 1], c.img[..., 2]
     blue = (b > r + 0.03) & (b >= g - 0.02) & (c.S > 0.12) & (c.L < 0.6)
     dark_smooth = (c.L < t_sh * 1.15) & (c.tex < 0.035)
-    wc = ndi.binary_opening((blue | dark_smooth) & ~(veg & ~shadow), _disk(c.px(1.5)))
-    wc = ndi.binary_fill_holes(wc)
+    wc = rs.binary_opening((blue | dark_smooth) & ~(veg & ~shadow), _disk(c.px(1.5)))
+    wc = rs.fill_holes(wc)
     water = np.zeros_like(wc)
-    lab, n = ndi.label(wc)
-    tree_ring_src = ndi.binary_dilation(trees & ~shadow, _disk(c.px(2)))
+    lab, n = rs.label(wc)
+    tree_ring_src = rs.binary_dilation(trees & ~shadow, _disk(c.px(2)))
     if n:
-        dt = ndi.distance_transform_edt(wc) * c.s
-        for i, sl in enumerate(ndi.find_objects(lab), 1):
+        dt = rs.distance_transform_edt(wc) * c.s
+        for i, sl in enumerate(rs.find_objects(lab), 1):
             m = lab[sl] == i
             area_ft = m.sum() * c.s * c.s
             if area_ft < 1500 or dt[sl][m].max() < 14:
@@ -301,9 +266,7 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
             if c.tex[sl][m].mean() > 0.05:
                 continue
             fill, rectil, _l, _s = _region_shapes(m)
-            from skimage.measure import regionprops
-
-            sol = regionprops(m.astype(np.uint8))[0].solidity
+            sol = rs.solidity(m)
             if sol < 0.85:
                 continue  # shadows under canopy and along buildings are ragged
             if fill > 0.85 and rectil > 0.8 and not blue[sl][m].mean() > 0.5:
@@ -311,11 +274,11 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
             y0, y1 = max(0, sl[0].start - 6), min(H, sl[0].stop + 6)
             x0, x1 = max(0, sl[1].start - 6), min(W, sl[1].stop + 6)
             mm = lab[y0:y1, x0:x1] == i
-            ring = ndi.binary_dilation(mm, _disk(c.px(4))) & ~mm
+            ring = rs.binary_dilation(mm, _disk(c.px(4))) & ~mm
             if ring.sum() and tree_ring_src[y0:y1, x0:x1][ring].mean() > 0.6:
                 continue  # dark hole in woodland: canopy shadow
             water[sl] |= m
-    water = ndi.binary_closing(water, _disk(c.px(2.0)))
+    water = rs.binary_closing(water, _disk(c.px(2.0)))
     shadow &= ~water
     veg &= ~water
     trees &= ~water
@@ -326,8 +289,8 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
     if sun is not None and water.any():
         # dark roofs cast shadows; ponds and basins do not
         k_sh = max(2, int(round(c.px(5.0))))
-        wl, wn = ndi.label(water)
-        for i, sl in enumerate(ndi.find_objects(wl), 1):
+        wl, wn = rs.label(water)
+        for i, sl in enumerate(rs.find_objects(wl), 1):
             y0, y1 = max(0, sl[0].start - k_sh - 1), min(H, sl[0].stop + k_sh + 1)
             x0, x1 = max(0, sl[1].start - k_sh - 1), min(W, sl[1].stop + k_sh + 1)
             m = wl[y0:y1, x0:x1] == i
@@ -340,20 +303,14 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
 
     # --- segmentation of the built-up surface
     built = ~(veg & ~shadow) & ~water & ~shadow
-    built = ndi.binary_opening(built, _disk(c.px(0.75)))
+    built = rs.binary_opening(built, _disk(c.px(0.75)))
     if regions is None:
-        sm = ndi.gaussian_filter(c.img, (0.6, 0.6, 0))
-        seg = felzenszwalb(sm, scale=150, sigma=0.5, min_size=max(8, int(c.px2(25))))
-        try:
-            rag = skgraph.rag_mean_color(sm * 255.0, seg)
-            seg = skgraph.cut_threshold(seg, rag, 14)
-        except Exception:
-            pass
+        sm = rs.gaussian_filter(c.img, (0.6, 0.6, 0))
+        seg = rs.felzenszwalb(sm, scale=150, sigma=0.5, min_size=max(8, int(c.px2(25))))
+        seg = rs.merge_regions(sm * 255.0, seg, 14)  # adjacent regions with mean colours < 14/255 apart
     else:
         seg = regions
-    from skimage.measure import label as cc_label
-
-    labels = cc_label(np.where(built, seg + 1, 0), background=0, connectivity=1)
+    labels, _n = rs.label_values(np.where(built, seg + 1, 0), 1)
     n_reg = int(labels.max())
     st["regions"] = n_reg
     if sun is None:
@@ -366,7 +323,7 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
     # --- roof scoring
     k_sh = max(2, int(round(c.px(5.0))))
     sizes = np.bincount(labels.ravel(), minlength=n_reg + 1)
-    slices = ndi.find_objects(labels)
+    slices = rs.find_objects(labels)
     roof = np.zeros(n_reg + 1, float)
     info: dict[int, dict] = {}
     min_b, max_b = c.px2(120), c.px2(400_000)
@@ -388,13 +345,13 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
             mm = np.zeros_like(m)
             for t in np.arange(max(1, k_sh // 3), 2 * k_sh + 1, max(1, k_sh // 3)):
                 mm |= np.roll(np.roll(m, int(round(dr * t)), 0), int(round(dc * t)), 1)
-            mm &= ~ndi.binary_dilation(m, iterations=1)
+            mm &= ~rs.binary_dilation(m)
             return float(shd[mm].mean()) if mm.sum() else 0.0
 
         if sun is not None:
             sh_away, sh_sun = side(*sun), side(-sun[0], -sun[1])
         else:
-            ring = ndi.binary_dilation(m, _disk(k_sh)) & ~m
+            ring = rs.binary_dilation(m, _disk(k_sh)) & ~m
             sh_away, sh_sun = (float(shd[ring].mean()) if ring.sum() else 0.0), 0.0
         width_ft = 2 * sizes[i] / max(1.0, (lng + sht)) * c.s
         road_like = (lng > 4.5 * max(sht, 1)) and width_ft < 70
@@ -432,20 +389,20 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
                 is_b[j] = True
                 roof[j] = max(roof[j], roof[i] - 0.3)
     bmask = is_b[labels]
-    bmask = ndi.binary_fill_holes(ndi.binary_closing(bmask, _disk(c.px(1.0))))
-    bmask = ndi.binary_opening(bmask, _disk(c.px(1.0)))
+    bmask = rs.fill_holes(rs.binary_closing(bmask, _disk(c.px(1.0))))
+    bmask = rs.binary_opening(bmask, _disk(c.px(1.0)))
     bmask = _remove_small(bmask, min_b)
     if water.any() and bmask.any():
-        bring = ndi.binary_dilation(bmask, _disk(c.px(6)))
-        wl, wn = ndi.label(water)
-        for i, sl in enumerate(ndi.find_objects(wl), 1):
+        bring = rs.binary_dilation(bmask, _disk(c.px(6)))
+        wl, wn = rs.label(water)
+        for i, sl in enumerate(rs.find_objects(wl), 1):
             m = wl[sl] == i
-            edge = m & ~ndi.binary_erosion(m, iterations=2)
+            edge = m & ~rs.binary_erosion(m, iterations=2)
             if edge.sum() and bring[sl][edge].mean() > 0.15:
                 water[sl][m] = False  # a dark patch hugging a roof is its shadow
-    blab, nb = ndi.label(bmask)
+    blab, nb = rs.label(bmask)
     bconf: dict[int, float] = {}
-    for j, sl in enumerate(ndi.find_objects(blab), 1):
+    for j, sl in enumerate(rs.find_objects(blab), 1):
         ids = labels[sl][blab[sl] == j]
         ids = ids[ids > 0]
         sc = float(np.average(roof[ids])) if ids.size else T_ROOF
@@ -456,10 +413,10 @@ def classify(rgb: np.ndarray, ft_per_px: float, *, road_hint: np.ndarray | None 
     pave = built & ~bmask & (c.S < 0.22) & (c.L > 0.18)
     if road_hint is not None:
         pave |= road_hint & ~bmask & ~water
-    pave = ndi.binary_closing(pave | (shadow & ~bmask & ndi.binary_dilation(pave, _disk(c.px(3)))), _disk(c.px(2.5)))
-    holes = ndi.binary_fill_holes(pave) & ~pave
+    pave = rs.binary_closing(pave | (shadow & ~bmask & rs.binary_dilation(pave, _disk(c.px(3)))), _disk(c.px(2.5)))
+    holes = rs.fill_holes(pave) & ~pave
     pave |= holes & ~_remove_small(holes, c.px2(400)) & ~bmask
-    pave = ndi.binary_opening(pave, _disk(c.px(1.5)))
+    pave = rs.binary_opening(pave, _disk(c.px(1.5)))
     pave = _remove_small(pave, c.px2(300))
     road, skel = roads_from_pavement(pave, c.s)
     st["road_px"] = int(road.sum())
@@ -482,22 +439,19 @@ def _adjacency(labels: np.ndarray) -> dict[int, set[int]]:
 def roads_from_pavement(pave: np.ndarray, s: float, min_w: float = 14.0, max_w: float = 60.0,
                         min_len: float = 60.0) -> tuple[np.ndarray, np.ndarray]:
     """Road surface + kept skeleton from a pavement mask (*s* ft/px)."""
-    from scipy import ndimage as ndi
-    from skimage.morphology import skeletonize
-
     if not pave.any():
         return np.zeros_like(pave), np.zeros_like(pave)
-    dt = ndi.distance_transform_edt(pave) * s
-    sk = skeletonize(pave)
+    dt = rs.distance_transform_edt(pave) * s
+    sk = rs.skeletonize(pave)
     w = 2 * dt
     sk &= (w >= min_w) & (w <= max_w)
     # branches: drop junction pixels, label segments, judge each by length and width steadiness
-    nb = ndi.convolve(sk.astype(np.uint8), np.ones((3, 3), np.uint8), mode="constant") - 1
+    nb = rs.neighbour_count(sk)
     junction = sk & (nb >= 3)
-    seg = sk & ~ndi.binary_dilation(junction, np.ones((3, 3), bool))
-    lab, n = ndi.label(seg, np.ones((3, 3), bool))
+    seg = sk & ~rs.binary_dilation(junction, rs.square(3))
+    lab, n = rs.label(seg, 2)
     keep = np.zeros(n + 1, bool)
-    for i, sl in enumerate(ndi.find_objects(lab), 1):
+    for i, sl in enumerate(rs.find_objects(lab), 1):
         m = lab[sl] == i
         ln = m.sum() * s * 1.1
         ww = w[sl][m]
@@ -505,32 +459,30 @@ def roads_from_pavement(pave: np.ndarray, s: float, min_w: float = 14.0, max_w: 
             keep[i] = True
     kept = keep[lab]
     # restore junctions that touch kept branches
-    jl, jn = ndi.label(ndi.binary_dilation(junction, np.ones((3, 3), bool)) & sk, np.ones((3, 3), bool))
-    for i, sl in enumerate(ndi.find_objects(jl), 1):
+    jl, jn = rs.label(rs.binary_dilation(junction, rs.square(3)) & sk, 2)
+    for i, sl in enumerate(rs.find_objects(jl), 1):
         m = jl[sl] == i
-        if (ndi.binary_dilation(m, np.ones((3, 3), bool)) & kept[sl]).any():
+        if (rs.binary_dilation(m, rs.square(3)) & kept[sl]).any():
             kept[sl] |= m
     if not kept.any():
         return np.zeros_like(pave), kept
     # each branch keeps its own typical width (local maxima at junctions/driveways would bulge the edges)
-    bl, bn = ndi.label(kept, np.ones((3, 3), bool))
+    bl, bn = rs.label(kept, 2)
     med = np.zeros(bn + 1)
     for i in range(1, bn + 1):
         med[i] = np.median(dt[bl == i])
-    d, (ri, ci) = ndi.distance_transform_edt(~kept, return_indices=True)
+    d, (ri, ci) = rs.distance_transform_edt(~kept, return_indices=True)
     rad = np.minimum(dt[ri, ci], 1.15 * med[bl[ri, ci]]) / s
     road = pave & (d <= rad + 1.0)
-    road = ndi.binary_opening(road, _disk(min_w / s / 4))
+    road = rs.binary_opening(road, _disk(min_w / s / 4))
     return road, kept
 
 
 def trace_skeleton(sk: np.ndarray) -> list[list[tuple[float, float]]]:
     """Skeleton pixels → polylines (col, row), split at junctions and ends."""
-    from scipy import ndimage as ndi
-
     sk = sk.copy()
     H, W = sk.shape
-    nb = ndi.convolve(sk.astype(np.uint8), np.ones((3, 3), np.uint8), mode="constant") - 1
+    nb = rs.neighbour_count(sk)
     nodes = sk & (nb != 2)
     visited = np.zeros_like(sk)
     nbrs = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -723,16 +675,13 @@ def _poly_features(mask: np.ndarray, kind: str, to_xy, s: float, *, tol_ft: floa
 
 
 def building_polygons(cl: Classified, to_xy, *, min_ft2: float = 120.0) -> list[dict]:
-    from scipy import ndimage as ndi
-    from skimage import measure
-
     s = cl.c.s
     out = []
-    for j, sl in enumerate(ndi.find_objects(cl.building_labels), 1):
+    for j, sl in enumerate(rs.find_objects(cl.building_labels), 1):
         if sl is None:
             continue
         m = np.pad(cl.building_labels[sl] == j, 1)
-        cs = measure.find_contours(m.astype(float), 0.5)
+        cs = rs.find_contours(m.astype(float), 0.5)
         if not cs:
             continue
         r0, c0 = sl[0].start - 1, sl[1].start - 1
@@ -777,8 +726,6 @@ def _min_rect_ring(ring) -> list[tuple[float, float]]:
 
 def classified_features(cl: Classified, to_xy) -> list[dict]:
     """All imagery features (CRS ft) from a classification; *to_xy(col, row)* in working pixels."""
-    from scipy import ndimage as ndi
-
     s = cl.c.s
     feats = building_polygons(cl, to_xy)
     feats += _poly_features(cl.trees, "trees", to_xy, s, tol_ft=2.5, min_ft2=300, conf=0.8)

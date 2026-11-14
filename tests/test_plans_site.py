@@ -13,7 +13,6 @@ import shutil
 import numpy as np
 import pytest
 
-pytest.importorskip("skimage")
 pytest.importorskip("pyproj")
 
 from pdfcore.ops.plans.site import geom, synthetic  # noqa: E402
@@ -45,11 +44,14 @@ def test_building_iou(syn):
     blds = [f for f in feats if f["properties"]["kind"] == "building"]
     eb = geom.rasterize([f["geometry"]["coordinates"] for f in blds], (grid.H, grid.W), grid.to_px)
     iou = geom.iou(tb, eb)
-    assert iou >= 0.8, f"building IoU {iou:.3f}"
+    assert iou >= 0.95, f"building IoU {iou:.3f}"
     assert len(blds) == len(truth["buildings"])
     for b in truth["buildings"]:  # every roof found (incl. the dark one, the rotated one and the gable)
         m = geom.rasterize([[b]], (grid.H, grid.W), grid.to_px)
         assert (m & eb).sum() / m.sum() >= 0.85
+        best = max(geom.iou(m, e) for e in (geom.rasterize([f["geometry"]["coordinates"]], (grid.H, grid.W), grid.to_px)
+                                            for f in blds) if (e & m).any())
+        assert best >= 0.92, f"roof IoU {best:.3f}"
     # squared: every extracted building has right-angle corners
     for f in blds:
         ring = geom.open_ring(f["geometry"]["coordinates"][0])
@@ -70,6 +72,7 @@ def test_road_centerlines_within_1_5_m(syn):
         d = geom.distance_to_polylines(s, cls)
         assert np.median(d) <= tol_ft / 2, f"median {np.median(d):.2f} ft"
         assert np.percentile(d, 90) <= tol_ft, f"p90 {np.percentile(d, 90):.2f} ft"
+        assert np.median(d) * 0.3048 <= 0.3 and np.percentile(d, 90) * 0.3048 <= 1.1  # metres
 
 
 def test_water_and_vegetation(syn):
@@ -78,7 +81,7 @@ def test_water_and_vegetation(syn):
     grid = _grid(pkg)
     tp = geom.rasterize([[truth["pond"]]], (grid.H, grid.W), grid.to_px)
     ew = geom.rasterize([f["geometry"]["coordinates"] for f in feats if f["properties"]["kind"] == "water"], (grid.H, grid.W), grid.to_px)
-    assert geom.iou(tp, ew) >= 0.85
+    assert geom.iou(tp, ew) >= 0.95
     assert sum(f["properties"]["kind"] == "trees" for f in feats) >= 5
     for f in feats:
         assert f["properties"]["source"] == "imagery" and 0 < f["properties"]["confidence"] <= 1

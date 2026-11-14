@@ -118,3 +118,29 @@ def test_cli_doctor_and_gate(corpus, capsys):
     assert main(["doctor"]) == 0
     assert main(["gate", str(corpus["letter"])]) == 0
     assert "PASS" in capsys.readouterr().out
+
+
+def test_native_library_names_and_verdicts():
+    from pdfcore.licenses import NATIVE, _lib_base
+    import re
+
+    assert _lib_base("libgfortran-83c28eba-468e71e5.so.5.0.0") == "libgfortran"
+    assert _lib_base("libquadmath.0.dylib") == "libquadmath"
+    assert _lib_base("libscipy_openblas64_-ed4f167a5330424524f45258e7ca2c8d.dll").startswith("libscipy_openblas")
+
+    def verdict(name):
+        return next((v for rx, _, v in NATIVE if re.search(rx, name, re.I)), "unknown")
+
+    assert verdict("libgfortran") == "exception"
+    assert verdict("libquadmath") == "review"
+    assert verdict("libfribidi") == "fail"
+    assert verdict("libz.1.3.1.zlib-ng") == "ok"
+    assert verdict("libsomethingnew") == "unknown"
+
+
+def test_no_bundled_copyleft_native_libraries():
+    """Wheels' bundled .so/.dylib/.dll files: no LGPL/GPL (except GCC runtime exception) or unknown libraries."""
+    from pdfcore.licenses import native_audit
+
+    bad = [r for r in native_audit() if r.verdict == "fail"]
+    assert not bad, [(r.package, r.library, r.reason) for r in bad]

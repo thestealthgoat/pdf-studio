@@ -446,13 +446,12 @@ def rasterize_lines(lines: Iterable[tuple[Sequence[Pt], float]], shape: tuple[in
 def mask_to_polygons(mask: np.ndarray, to_xy: Callable[[float, float], Pt], *, tol_px: float = 1.0,
                      min_area_px: float = 4.0, min_hole_px: float | None = None, smooth: bool = False) -> list[list[list[Pt]]]:
     """Bool mask → polygons [[outer, hole, …], …] in world coordinates (via *to_xy(col, row)*)."""
-    from scipy import ndimage as ndi
-    from skimage import measure
+    from pdfcore.ops.plans.site import raster as rs
 
     min_hole_px = min_area_px if min_hole_px is None else min_hole_px
-    lab, n = ndi.label(mask)
+    lab, n = rs.label(mask)
     out = []
-    objs = ndi.find_objects(lab)
+    objs = rs.find_objects(lab, n)
     for k, sl in enumerate(objs, 1):
         if sl is None:
             continue
@@ -460,11 +459,11 @@ def mask_to_polygons(mask: np.ndarray, to_xy: Callable[[float, float], Pt], *, t
         sub = np.pad(lab[sl] == k, 1)
         if sub.sum() < min_area_px:
             continue
-        filled = ndi.binary_fill_holes(sub)
+        filled = rs.fill_holes(sub)
         src = filled.astype(float)
         if smooth:
-            src = ndi.gaussian_filter(src, 0.7)
-        cs = measure.find_contours(src, 0.5)
+            src = rs.gaussian_filter(src, 0.7)
+        cs = rs.find_contours(src, 0.5)
         if not cs:
             continue
         c = max(cs, key=len)
@@ -474,12 +473,12 @@ def mask_to_polygons(mask: np.ndarray, to_xy: Callable[[float, float], Pt], *, t
         rings = [[to_xy(x + c0 + 0.5, y + r0 + 0.5) for x, y in ring]]
         holes = filled & ~sub
         if holes.any():
-            hl, hn = ndi.label(holes)
+            hl, hn = rs.label(holes)
             for j in range(1, hn + 1):
                 hm = hl == j
                 if hm.sum() < min_hole_px:
                     continue
-                hc = measure.find_contours(np.pad(hm, 1).astype(float), 0.5)
+                hc = rs.find_contours(np.pad(hm, 1).astype(float), 0.5)
                 if hc:
                     hr = simplify([(p[1] - 1, p[0] - 1) for p in max(hc, key=len)], tol_px, closed=True)
                     if len(hr) >= 3:

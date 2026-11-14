@@ -738,7 +738,8 @@ def legend_swatch(pen: Pen, key: str, x: float, y: float, w: float, h: float) ->
 def underlay_image(pkg: SitePackage, g: Georef, view: View, *, opacity: float, color: bool, dpi: float, out: Path) -> Path:
     """Faded imagery resampled into the plan window at *dpi* (JPEG)."""
     from PIL import Image
-    from scipy import ndimage as ndi
+
+    from pdfcore.ops.plans.site.raster import sample_bilinear
 
     wx, wy, ww, wh = view.win
     Wp, Hp = int(math.ceil(ww / PT * dpi)), int(math.ceil(wh / PT * dpi))
@@ -757,11 +758,11 @@ def underlay_image(pkg: SitePackage, g: Georef, view: View, *, opacity: float, c
     pr = np.broadcast_to(pr, (Hp, Wp))
     inside = (pc >= -0.5) & (pr >= -0.5) & (pc <= g.width - 0.5) & (pr <= g.height - 0.5)
     if color:
-        chans = [ndi.map_coordinates(src[..., i], [pr, pc], order=1, mode="nearest") for i in range(3)]
+        chans = [sample_bilinear(src[..., i], pr, pc) for i in range(3)]
         img = np.stack(chans, -1)
         img = np.where(inside[..., None], img, 1.0)
     else:
-        img = ndi.map_coordinates(src, [pr, pc], order=1, mode="nearest")
+        img = sample_bilinear(src, pr, pc)
         lo, hi = np.percentile(img[inside], 1) if inside.any() else 0, np.percentile(img[inside], 99) if inside.any() else 1
         img = np.clip((img - lo) / max(hi - lo, 1e-3), 0, 1) ** 0.75  # lift shadows/woods so linework reads
         img = np.where(inside, img, 1.0)

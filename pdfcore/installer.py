@@ -12,7 +12,6 @@ from pdfcore.doctor import run_doctor
 PY_EXTRAS = ["pytesseract>=0.3.10", "pyHanko>=0.25", "pyhanko-certvalidator>=0.26", "ezdxf>=1.3", "matplotlib>=3.8", "typst>=0.12"]
 BREW = ["tesseract", "typst", "verapdf"]
 BREW_CASKS = ["libreoffice"]
-APT = ["tesseract-ocr", "tesseract-ocr-eng", "libreoffice-core", "default-jre-headless"]
 
 
 def _run(cmd: list[str]) -> int:
@@ -33,9 +32,6 @@ def run_install(yes: bool = False, system: bool = True, fonts: bool = True) -> i
                 rc |= _run(["brew", "install", *missing])
             if not shutil.which("soffice") and not _mac_soffice():
                 rc |= _run(["brew", "install", "--cask", *BREW_CASKS])
-        elif osname == "Linux" and shutil.which("apt-get"):
-            print("Linux: run as root →  apt-get install -y " + " ".join(APT))
-            print("Typst: pip package 'typst' is installed above; veraPDF: https://docs.verapdf.org/install/")
         else:
             print("Install manually: Tesseract, Typst, veraPDF, LibreOffice (see README).")
     if fonts:

@@ -124,7 +124,6 @@ class OdaDwg:
     name = "oda"
     CANDIDATES = [
         "/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter",
-        "/usr/bin/ODAFileConverter",
         "C:/Program Files/ODA/ODAFileConverter/ODAFileConverter.exe",
     ]
 

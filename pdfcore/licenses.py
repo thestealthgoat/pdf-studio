@@ -102,3 +102,92 @@ def audit() -> list[Row]:
 
 def failures(rows: list[Row] | None = None) -> list[Row]:
     return [r for r in (rows if rows is not None else audit()) if r.verdict == "fail"]
+
+
+# ----------------------------------------------------------------------------- bundled native libraries
+# Package metadata only describes the Python package. Wheels also ship compiled third-party libraries
+# (e.g. numpy.libs/, scipy/.dylibs/, pillow/.dylibs/). Each one is checked against this table.
+# verdict: ok | exception (GPL with a linking/runtime exception — free to ship) | review (needs Owen's ruling) | fail
+NATIVE: list[tuple[str, str, str]] = [
+    (r"^libgcc(_s)?$|^libgfortran$|^libstdc\+\+$|^libgomp$", "GPL-3.0-or-later WITH GCC-exception-3.1", "exception"),
+    (r"^libquadmath$", "LGPL-2.1-or-later", "review"),
+    (r"^lib(scipy_)?openblas", "BSD-3-Clause", "ok"),
+    (r"^(msvcp|vcruntime|concrt)\d+", "Microsoft Visual C++ Redistributable", "ok"),
+    (r"^libjpeg|^libturbojpeg", "IJG / BSD-3-Clause / Zlib (libjpeg-turbo)", "ok"),
+    (r"^libqpdf$", "Apache-2.0", "ok"),
+    (r"^libpdfium$|^pdfium$", "BSD-3-Clause / Apache-2.0", "ok"),
+    (r"^libXau$|^libxcb", "MIT (X11)", "ok"),
+    (r"^libavif$|^libopenjp2$|^libaom$|^libdav1d$", "BSD-2-Clause", "ok"),
+    (r"^libbrotli", "MIT", "ok"),
+    (r"^libfreetype$", "FTL (FreeType License)", "ok"),
+    (r"^libharfbuzz", "MIT", "ok"),
+    (r"^liblcms2$", "MIT", "ok"),
+    (r"^liblzma$", "0BSD / public domain", "ok"),
+    (r"^libpng", "libpng-2.0", "ok"),
+    (r"^libsharpyuv$|^libwebp", "BSD-3-Clause", "ok"),
+    (r"^libtiff$", "libtiff (BSD-style)", "ok"),
+    (r"^libz$|^libz\.|^zlib|zlib-ng", "Zlib (zlib / zlib-ng)", "ok"),
+    (r"^libzstd$", "BSD-3-Clause", "ok"),
+    (r"^libproj$", "MIT", "ok"),
+    (r"^libsqlite3$", "public domain", "ok"),
+    (r"^libcurl$", "curl (MIT-style)", "ok"),
+    (r"^lib(ssl|crypto)$", "Apache-2.0 (OpenSSL 3)", "ok"),
+    (r"^libxml2$|^libxslt$|^libexslt$|^libffi$|^libyaml", "MIT", "ok"),
+    (r"^libqhull", "Qhull (permissive)", "ok"),
+    (r"^libfribidi$|^libraqm$", "LGPL-2.1", "fail"),
+]
+
+# Documented, package-scoped decisions for "review" libraries. Key: (package, library).
+NATIVE_DECISIONS: dict[tuple[str, str], str] = {}  # none needed: macOS/Windows wheels bundle no LGPL libraries
+
+
+@dataclass
+class NativeRow:
+    package: str
+    library: str
+    path: str
+    license: str
+    verdict: str  # ok | exception | review | fail
+    reason: str = ""
+
+
+def _lib_base(filename: str) -> str:
+    stem = re.sub(r"\.(so(\.\d+)*|dylib|dll)$", "", filename, flags=re.I)
+    stem = re.sub(r"[-_][0-9a-f]{8,}.*$", "", stem)  # auditwheel / delocate hash suffixes
+    stem = re.sub(r"[-.]\d+(\.\d+)*$", "", stem)     # version suffixes
+    return stem
+
+
+def native_audit() -> list[NativeRow]:
+    """Every compiled third-party library bundled inside installed distributions."""
+    rows: list[NativeRow] = []
+    for d in distributions():
+        name = (d.metadata.get("Name") or "").strip()
+        if not name or name.lower() in SELF:
+            continue
+        for f in d.files or []:
+            s = str(f)
+            fn = s.replace("\\", "/").split("/")[-1]
+            if not re.search(r"\.(so(\.\d+)*|dylib|dll)$", fn, re.I):
+                continue
+            vendored = re.search(r"(^|/)([\w.-]*\.libs|\.dylibs)/", s.replace("\\", "/")) or fn.lower().startswith("lib")
+            if not vendored or ".cpython-" in fn or fn.endswith(".pyd") or ".abi3." in fn:
+                continue  # the package's own extension modules: covered by its own license
+            base = _lib_base(fn)
+            lic, verdict = "UNKNOWN", "fail"
+            for rx, l, v in NATIVE:
+                if re.search(rx, base, re.I):
+                    lic, verdict = l, v
+                    break
+            reason = ""
+            if verdict == "review":
+                dec = NATIVE_DECISIONS.get((name.lower(), base.lower()))
+                if dec:
+                    reason = dec
+                else:
+                    verdict, reason = "fail", "LGPL library with no recorded decision for this package"
+            elif verdict == "fail":
+                reason = "unknown bundled library — identify its license and add it to NATIVE" if lic == "UNKNOWN" else "copyleft library bundled"
+            rows.append(NativeRow(name, base, s, lic, verdict, reason))
+    uniq = {(r.package.lower(), r.library.lower()): r for r in rows}
+    return sorted(uniq.values(), key=lambda r: (r.package.lower(), r.library.lower()))

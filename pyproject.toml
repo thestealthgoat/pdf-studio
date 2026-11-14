@@ -39,7 +39,7 @@ html = ["weasyprint>=62"]
 docx = ["python-docx>=1.1"]  # MIT — PDF → Word in `pdfcore convert`
 tables = ["camelot-py>=1.0"]
 docling = ["docling>=2.0"]
-site = ["pyproj>=3.6", "scikit-image>=0.22", "ezdxf>=1.3", "pytesseract>=0.3.10"]  # MIT, BSD-3 — `pdfcore plans site-*`
+site = ["pyproj>=3.6", "ezdxf>=1.3", "pytesseract>=0.3.10"]  # MIT, MIT, Apache-2.0 — `pdfcore plans site-*` (image work is plain numpy)
 dev = ["pytest>=8", "pip-licenses>=5"]
 all = [
   "pdf-studio[ocr,sign,cad,typeset,docx,site,dev]",

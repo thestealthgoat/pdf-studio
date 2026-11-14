@@ -54,14 +54,15 @@ TREES = [(330, 80, 18), (355, 95, 14), (300, 100, 12), (560, 90, 16), (585, 60, 
 def make_image(seed: int = 7) -> tuple[np.ndarray, dict]:
     """(RGB uint8 image, ground truth in site ft)."""
     from PIL import Image, ImageDraw
-    from scipy import ndimage as ndi
+
+    from pdfcore.ops.plans.site.raster import gaussian_filter
 
     rng = np.random.default_rng(seed)
 
     def noise(sig, smooth):
         n = rng.normal(0, 1, (H, W)).astype(np.float32)
         if smooth:
-            n = ndi.gaussian_filter(n, smooth)
+            n = gaussian_filter(n, smooth)
             n /= n.std() + 1e-9
         return n * sig
 

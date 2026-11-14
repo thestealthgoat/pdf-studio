@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pdfcore.licenses import audit  # noqa: E402
+from pdfcore.licenses import audit, native_audit  # noqa: E402
 
 
 def main() -> int:
@@ -30,7 +30,14 @@ def main() -> int:
             lines.append(f"| {r.name} | {r.version} | {r.license.replace('|', '/')} | {r.reason} |")
         Path(a.markdown).write_text("\n".join(lines) + "\n")
     print(f"\n{len(rows)} packages, {len(bad)} failing")
-    return 1 if bad else 0
+    native = native_audit()
+    nbad = [r for r in native if r.verdict == "fail"]
+    print("\nBundled native libraries:")
+    for r in native:
+        mark = {"ok": "ok  ", "exception": "ok+ ", "review": "rev ", "fail": "FAIL"}[r.verdict]
+        print(f"{mark} {r.package:14} {r.library:22} {r.license[:48]}" + (f"   <- {r.reason}" if r.reason else ""))
+    print(f"\n{len(native)} native libraries, {len(nbad)} failing  (ok+ = GPL with GCC runtime exception: free to ship)")
+    return 1 if (bad or nbad) else 0
 
 
 if __name__ == "__main__":

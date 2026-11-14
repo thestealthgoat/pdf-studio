@@ -8,6 +8,8 @@ sources    US Census / Nominatim geocoding, USGS National Map imagery (NAIP + ba
 ingest     site-fetch and site-from-image (calibration, control points, scale-bar OCR)
 extract    classical CV classification + vectorization, OSM merge (site-extract)
 geom       numpy geometry: simplify, orthogonalize, clip, rasterize, mask → polygons
+raster     numpy raster primitives: filters, morphology, labeling, distance transform, skeleton, contours,
+           graph-based segmentation (no scipy / scikit-image)
 plan       site-plan sheet (ReportLab drawing on the drawing-sheet title block) + layered DXF
 job        site-add: proposed infrastructure from YAML, quantities → takeoff XLSX
 synthetic  synthetic aerial image with known geometry (tests)
@@ -16,7 +18,7 @@ Data rules: imagery from USGS The National Map (public domain) only; OpenStreetM
 carries "© OpenStreetMap contributors". Google/Bing/Apple imagery is never fetched; a user's screenshot is
 accepted as input with a notice that Google's terms restrict tracing it.
 
-Heavy dependencies (pyproj, scikit-image) are imported lazily, so ``pdfcore plans`` works without the
+The one extra dependency (pyproj) is imported lazily, so ``pdfcore plans`` works without the
 ``site`` extra installed.
 """
 
