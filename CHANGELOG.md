@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.2.0 — Phases 1 & 2 (2026-11-13)
+
+### Phase 1 — Acrobat / PyMuPDF parity (`pdfcore` ops)
+- **Organize**: merge (per-file bookmarks), split (ranges / every N / bookmarks), insert, delete, reorder, extract,
+  duplicate, rotate, crop (rotation-aware), page labels. Moving pages rebuilds bookmarks, links, fields, labels.
+- **Navigate**: bookmarks list/set/auto-from-headings, links (internal, URI, named dests), autolink, metadata
+  (Info + XMP + /Lang), attachments.
+- **Stamp**: headers/footers (6 positions, tokens), page X of Y, Bates across files (+ metadata), watermarks
+  (ExtGState opacity), approval stamps. Rotation- and CropBox-aware overlay engine.
+- **Redact (true)**: glyph-level removal from content streams and form XObjects, image pixel redaction,
+  vector cut/clip, annotation removal, ActualText stripping, scrubbing (metadata, hidden layers, comments,
+  attachments, JS, thumbnails, strings in bookmarks/tags/fields), full rewrite. Patterns ssn/phone/email/ein/card.
+  Gate re-extracts with pdfplumber and pdfium. Works on rotated pages.
+- **Markup**: 15 annotation types with our own appearance streams; list/delete/flatten/export/import; comment
+  summary PDF + CSV.
+- **Compare**: text-diff report; red/blue overlay with revision clouds and delta tags; reusable `find_changes`.
+- **OCR**: OSD auto-rotate, deskew, invisible Inter text layer, per-page confidence.
+- **Forms**: list, fill with real appearances, create, auto-detect on flat forms, CSV bulk fill, flatten,
+  export JSON/CSV/XFDF.
+- **Optimize**: dpi-aware downsampling, JPEG vs lossless choice, dedupe, TrueType re-subsetting, size budget.
+- **Security**: AES-256 encrypt with permissions, decrypt, change passwords, info.
+- **Extract**: render, text (chars/words/lines/blocks/plain), search, vector paths → JSON/SVG, images, tables → CSV/XLSX.
+- **Convert**: Office via LibreOffice, images → PDF, PDF → images. **Recipes**: YAML batch chains with dry-run.
+- **Skills**: `pdf` front door + pdf-organize, pdf-markup, pdf-ocr-forms, pdf-make, pdf-standards, pdf-plans;
+  `pdfcore route` with a 42-case routing test.
+
+### Phase 2 — professional documents (`pdfcore make`)
+- Typst house style: sidehead grid (1 in margins, ≈66-character measure), 4-size scale, Source Serif 4 + Inter,
+  tabular figures, ruled tables with repeating headers, running header/footer with page X of Y, tagged PDF.
+- Templates: estimate, invoice, report, proposal, letter, memo, certificate, run sheet, production sheet,
+  booklet, manuscript (6×9, justified + hyphenated), drawing sheet with title block (ANSI/ARCH).
+- Brand token files with WCAG contrast check; exact Decimal money; Markdown prose fields; PDF/A via `--standard`.
+
 ## v0.1.0 — Phase 0 (2026-11-13)
 - `pdfcore` package skeleton: engines registry (`pdfcore.backends` entry points for the local edition), op registry, CLI.
 - Builtin engines: pypdfium2 (render), pdfplumber (text, words, vector paths).
