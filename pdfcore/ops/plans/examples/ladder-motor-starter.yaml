@@ -1,0 +1,82 @@
+# Ladder schematic example — pump P-1 across-the-line starter with H-O-A, start/stop station, seal-in,
+# overload, float-switch call with on-delay, and pilot lights.
+#   pdfcore plans schematic pdfcore/ops/plans/examples/ladder-motor-starter.yaml
+title: PUMP P-1 CONTROL SCHEMATIC
+heading: Pump P-1 motor control
+sheet: E-601
+project: RIVERSIDE PUMP STATION UPGRADE
+client: CITY OF RIVERSIDE PUBLIC WORKS
+rev: 0
+date: 2026-11-13
+drawn: PS
+checked: —
+revisions:
+  - {rev: 0, date: 2026-11-13, description: Issued for review}
+size: ansi-b
+standard: jic            # jic (NFPA 79 / JIC symbols) or iec
+rails: [X1, X2]          # control transformer secondary
+supply: 120 VAC control power from CPT1
+fuse: {tag: FU1, rating: 2A}
+grounded: true           # X2 bonded to ground
+line_start: 100
+wires: {start: 3, rails: ["1", "2"], scheme: sequential}
+
+# Device data used for the bill of materials (tags match the rungs below).
+devices:
+  M1:   {desc: "MOTOR STARTER, NEMA SIZE 4, 120 VAC COIL, P-1 (75 HP)", mfr: "EATON", part: "AN16SN0AB"}
+  OL1:  {desc: "OVERLOAD RELAY, CLASS 20, 1 N.O. + 1 N.C. AUX", mfr: "EATON", part: "C440A1A100SAX"}
+  CR1:  {desc: "CONTROL RELAY, 120 VAC, 2 N.O. + 2 N.C. (PUMP CALL)", mfr: "IDEC", part: "RR2P-ULAC120V"}
+  TR1:  {desc: "TIMING RELAY, ON-DELAY, 0.1 S–10 MIN, 120 VAC", mfr: "IDEC", part: "GE1A-C10HAAC120"}
+  PB1:  {desc: "PUSHBUTTON, RED, 1 N.C. (STOP)", mfr: "SCHNEIDER", part: "XB4BA42"}
+  PB2:  {desc: "PUSHBUTTON, GREEN, 1 N.O. (START)", mfr: "SCHNEIDER", part: "XB4BA31"}
+  SS1:  {desc: "SELECTOR SWITCH, 3-POSITION MAINTAINED (HAND-OFF-AUTO)", mfr: "SCHNEIDER", part: "XB4BD33", positions: [HAND, "OFF", AUTO]}
+  LSH1: {desc: "FLOAT SWITCH, WET WELL HIGH LEVEL (PUMP CALL)", mfr: "FLYGT", part: "ENM-10"}
+  PL1:  {desc: "PILOT LIGHT, GREEN, 120 VAC LED (RUNNING)", mfr: "SCHNEIDER", part: "XB4BVG3"}
+  PL2:  {desc: "PILOT LIGHT, AMBER, 120 VAC LED (OVERLOAD)", mfr: "SCHNEIDER", part: "XB4BVG5"}
+  PL3:  {desc: "PILOT LIGHT, WHITE, 120 VAC LED (IN AUTO)", mfr: "SCHNEIDER", part: "XB4BVG1"}
+  FU1:  {desc: "FUSE, 2 A TIME-DELAY, CLASS CC, CONTROL POWER", mfr: "BUSSMANN", part: "FNQ-R-2"}
+  TB-1: {desc: "TERMINAL BLOCK, 4 MM², FEED-THROUGH", mfr: "PHOENIX CONTACT", part: "3044102"}
+
+rungs:
+  - desc: P-1 starter — HAND (stop/start with seal-in) or AUTO (pump call)
+    devices:
+      - parallel:
+          - - {tag: PB1, type: pb_nc, label: STOP}
+            - {tag: SS1, type: ss, position: HAND}
+            - parallel:
+                - [{tag: PB2, type: pb_no, label: START}]
+                - [{tag: M1, type: no}]
+          - - {tag: SS1, type: ss, position: AUTO}
+            - {tag: CR1, type: no}
+      - {tag: M1, type: coil}
+      - {tag: OL1, type: ol}
+
+  - desc: Wet well high level float calls pump after delay
+    devices:
+      - {type: terminal, tag: TB-1-1}
+      - {tag: LSH1, type: switch_no, actuator: float, label: HIGH}
+      - {type: terminal, tag: TB-1-2}
+      - {tag: TR1, type: timer, rating: TON 5 SEC}
+
+  - desc: Pump call relay
+    devices:
+      - {tag: TR1, type: no, timed: on}
+      - {tag: CR1, type: coil}
+
+  - desc: P-1 running light
+    devices:
+      - {tag: M1, type: no}
+      - {tag: PL1, type: light, color: G, label: RUNNING}
+
+  - desc: P-1 overload light
+    devices:
+      - {tag: OL1, type: ol_no}
+      - {tag: PL2, type: light, color: A, label: OVERLOAD}
+
+  - desc: P-1 in AUTO light
+    devices:
+      - {tag: SS1, type: ss, position: AUTO}
+      - {tag: PL3, type: light, color: W, label: AUTO}
+
+notes:
+  - "Field wiring to LSH1 through TB-1: No. 14 AWG MTW, 600 V, red for 120 VAC control."

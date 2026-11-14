@@ -55,11 +55,16 @@ pdfcore plans sizes set.pdf                             # named sheet size of ev
 pdfcore plans resize set.pdf --to ansi-b [--factor 50%]  # scale kept in /Measure; ARCH D→ANSI B fits (≈46%), not 50%
 pdfcore plans tile set.pdf --paper letter --overlap 0.5in   # tiled printing with crop marks and A1, A2… labels
 pdfcore plans layers set.pdf [--off "NOTES"] [--flatten]
-pdfcore plans dxf2pdf drawing.dxf --size arch-d --lineweights by-layer
+pdfcore plans dxf2pdf drawing.dxf --size arch-d --lineweights by-layer   # .dwg too (dwg2pdf); --mono for print
+pdfcore plans dxf2pdf drawing.dwg --size ansi-b --title-block --sheet M-101 --title "…" --project "…"
 pdfcore plans pdf2dxf set.pdf --sheet E-101             # vector geometry for ProgeCAD
 pdfcore plans schematic ladder.yaml                     # ladder/wiring diagram with wire numbers, cross-refs, BOM
+#   example: pdfcore/ops/plans/examples/ladder-motor-starter.yaml  (--terminal-view strip)
 pdfcore make drawing-sheet sheet.yaml                   # blank sheet with title block
 ```
+
+DWG needs a converter: the local edition uses LibreDWG; elsewhere the free ODA File Converter if the user
+installed it. If neither exists, ask for a DXF export instead.
 
 ## Drawing rules (for anything you produce)
 
