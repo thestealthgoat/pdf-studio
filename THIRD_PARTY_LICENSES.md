@@ -22,7 +22,8 @@ package metadata and upstream license file. CI re-checks the installed set on ev
 | pyHanko, pyhanko-certvalidator | MIT | signatures, PAdES |
 | ezdxf | MIT | DXF read/write (SVG / Matplotlib backends only) |
 | Matplotlib | Matplotlib License (PSF-style, permissive) | DXF rendering backend |
-| typst (Python) | Apache-2.0 | typesetting |
+| typst (Python) | Apache-2.0 | typesetting, SVG → PDF |
+| python-docx (+ lxml BSD-3, typing_extensions PSF) | MIT | PDF → Word (`docx` extra) |
 
 Optional, not installed by default: WeasyPrint (BSD-3-Clause), Camelot (MIT), Docling (MIT).
 

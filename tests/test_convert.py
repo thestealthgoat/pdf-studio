@@ -149,9 +149,10 @@ def test_images_to_pdf_cli(tmp_path, capsys):
 # ------------------------------------------------------------------ dispatch, HTML, PDF → images
 
 
-def test_html_needs_weasyprint(tmp_path):
+def test_html_needs_weasyprint(tmp_path, monkeypatch):
     h = tmp_path / "page.html"
     h.write_text("<h1>Hello</h1>")
+    monkeypatch.setattr(convert, "find_soffice", lambda: None)  # LibreOffice is the fallback; hide it
     try:
         import weasyprint  # noqa: F401
     except ImportError:

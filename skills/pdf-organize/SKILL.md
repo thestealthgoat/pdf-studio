@@ -70,10 +70,18 @@ Check extracted tables against the page image before trusting totals.
 
 ## Convert
 
+One front door: `pdfcore convert IN… [--to FMT | -o OUT.ext]`; `pdfcore convert --list` prints the matrix.
+- → PDF: png jpg tiff gif bmp webp avif jp2 (heic via macOS sips) · svg (Typst, vector) · dxf dwg plt ·
+  md/txt (Typst house style) · html (WeasyPrint, else LibreOffice) · docx xlsx pptx odt rtf csv… (LibreOffice)
+- PDF →: png jpg tiff webp gif bmp avif jp2 heic (`--dpi`, `--multipage`) · svg · dxf · dwg (needs ODA) ·
+  docx · xlsx csv (tables) · md html · txt · json (words + boxes). `--pages 1-3` limits pages.
+- image ↔ image (Pillow/sips) · dwg → dxf · dxf → dwg (ODA) · anything else goes via a temporary PDF.
+
 ```bash
-pdfcore convert spec.docx                            # Office/text via LibreOffice
-pdfcore images-to-pdf scan1.jpg scan2.jpg -o scans.pdf
-pdfcore pdf-to-images f.pdf --dpi 150
+pdfcore convert spec.docx photo.HEIC drawing.dxf     # each → PDF beside it
+pdfcore convert report.pdf --to docx                 # or -o report.xlsx / --to md / --to svg
+pdfcore convert scans/ --to pdf --merge -o packet.pdf
+pdfcore convert set.pdf --to png --dpi 200 --pages 2
 ```
 
 ## Batch (Action Wizard equivalent)
