@@ -47,15 +47,27 @@ def contrast(a: str, b: str) -> float:
     return (la + 0.05) / (lb + 0.05)
 
 
+def brand_dirs() -> list[Path]:
+    """Where brand token files are looked up: $PDFCORE_BRANDS (os.pathsep-separated),
+    ~/.config/pdf-studio/brands (private brands live here, outside the public repo), then the bundled ones."""
+    import os
+
+    dirs = [Path(d).expanduser() for d in os.environ.get("PDFCORE_BRANDS", "").split(os.pathsep) if d]
+    dirs.append(Path.home() / ".config" / "pdf-studio" / "brands")
+    dirs.append(templates_dir() / "brands")
+    return [d for d in dirs if d.is_dir()]
+
+
 def brand_path(brand: str | Path) -> Path:
-    p = Path(brand)
+    p = Path(brand).expanduser()
     if p.suffix == ".toml" and p.exists():
         return p
-    cand = templates_dir() / "brands" / f"{brand}.toml"
-    if not cand.exists():
-        avail = sorted(x.stem for x in (templates_dir() / "brands").glob("*.toml"))
-        raise FileNotFoundError(f"brand {brand!r} not found; available: {avail}")
-    return cand
+    for d in brand_dirs():
+        cand = d / f"{brand}.toml"
+        if cand.exists():
+            return cand
+    avail = sorted({x.stem for d in brand_dirs() for x in d.glob("*.toml")})
+    raise FileNotFoundError(f"brand {brand!r} not found; available: {avail}")
 
 
 def load_brand(brand: str | Path = "default") -> dict:
@@ -71,7 +83,10 @@ def load_brand(brand: str | Path = "default") -> dict:
         problems.append("white on primary is below 4.5:1")
     if problems:
         raise ValueError(f"brand {p.stem}: " + "; ".join(problems))
-    b["_dir"] = str(p.parent)
+    c.setdefault("accent_text", c["accent"] if contrast(c["accent"], c["paper"]) >= 4.5 else c["primary"])
+    b["_dir"] = str(p.parent.resolve())
+    fdir = b.get("fonts", {}).get("dir")
+    b["_font_dir"] = str((p.parent / fdir).resolve()) if fdir else None
     return b
 
 
@@ -337,7 +352,8 @@ def make(
         (root / "main.typ").write_text(
             f'#import "/typst/{template}.typ": {fn}\n#{fn}(data: json("/data.json"), brand: json("/brand.json"))\n'
         )
-        kw: dict[str, Any] = dict(root=str(root), font_paths=[str(font_dir())], ignore_system_fonts=True, pdf_tags=True)
+        fonts = [str(font_dir())] + ([b["_font_dir"]] if b.get("_font_dir") else [])
+        kw: dict[str, Any] = dict(root=str(root), font_paths=fonts, ignore_system_fonts=True, pdf_tags=True)
         if standard:
             kw["pdf_standards"] = [standard.lower().replace("pdfa-", "a-").replace("pdfua-", "ua-")]
         pdf_bytes = typst.compile(str(root / "main.typ"), **kw)
@@ -349,7 +365,30 @@ def make(
                     png_dir=Path(png_dir) if png_dir else None, png_dpi=110 if png_dir else 60,
                     standard=standard)
     extra = {"total": prepared.get("totals", {}).get("_total")} if "totals" in prepared else {}
-    return finalize(dst, None, options=o, data=extra, quiet=quiet)
+    res = finalize(dst, None, options=o, data=extra, quiet=True)
+    fallback = _fallback_fonts(dst)
+    if fallback and res.gate is not None:
+        from pdfcore.gate import Finding
+
+        res.gate.failures.insert(0, Finding("fonts", f"brand font missing — Typst substituted {', '.join(fallback)}", None,
+                                            "check the family names in the brand file against `typst fonts --font-path <dir>`"))
+    if not quiet:
+        print(f"{dst}  {res.line()}")
+    return res
+
+
+def _fallback_fonts(path: Path) -> list[str]:
+    """Typst's bundled fallback faces appearing in the output mean a requested family was not found."""
+    import pikepdf
+
+    found = set()
+    with pikepdf.open(path) as pdf:
+        for page in pdf.pages:
+            for _, f in (page.obj.get("/Resources", {}).get("/Font", {}) or {}).items():
+                base = str(f.get("/BaseFont", "")).split("+")[-1]
+                if any(x in base for x in ("Libertinus", "NewCM", "NewComputerModern", "DejaVu")):
+                    found.add(base)
+    return sorted(found)
 
 
 @command("make", "Typeset a professional document from a template + YAML data (estimate, report, proposal, …)", group="make")

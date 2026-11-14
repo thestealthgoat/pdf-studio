@@ -19,8 +19,8 @@
   // Cover
   page(footer: none, margin: 0.6in, {
     v(1fr)
-    if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.5in); v(0.2in) }
-    text(font: k.sans, size: 22pt, weight: "semibold", fill: k.ink, data.title)
+    if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.5in, alt: brand.name + " logo"); v(0.2in) }
+    text(font: k.display, size: 22pt, weight: "semibold", fill: k.ink, data.title)
     if data.at("subtitle", default: "") != "" { v(0.05in); text(font: k.sans, size: 11pt, fill: k.muted, data.subtitle) }
     v(0.3in)
     line(length: 30%, stroke: 1.5pt + k.primary)

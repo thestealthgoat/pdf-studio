@@ -10,11 +10,11 @@
   set text(font: k.serif, size: 12pt, fill: k.ink, lang: "en", hyphenate: false)
   set align(center)
   v(0.35in)
-  if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.55in) }
+  if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.55in, alt: brand.name + " logo") }
   v(0.2in)
   label(brand.name, brand, color: k.primary)
   v(0.25in)
-  text(font: k.sans, size: 22pt, weight: "semibold", fill: k.primary, data.title)
+  text(font: k.display, size: 22pt, weight: "semibold", fill: k.primary, data.title)
   v(0.25in)
   text(font: k.sans, size: 10pt, fill: k.muted, data.at("lead", default: "This certifies that"))
   v(0.08in)

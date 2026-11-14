@@ -34,8 +34,11 @@ negative). Alternates show as add/(deduct). Check the printed total against your
 
 ## Brands
 
-Brand token files: `templates/brands/<name>.toml` (colors, fonts, logo, address). `--brand bar|tfc|kvntv|…`
-once Owen supplies the assets; until then use `default`. Colors are checked for 4.5:1 contrast on load.
+Brands: `--brand tfc | kvntv | bar | owen | default`. Private brand files (logos, fonts) live in
+`~/.config/pdf-studio/brands/` (→ the private pdf-studio-local repo); `default` ships in the public repo.
+Pick by audience: church/staff → `tfc`; broadcasts/sponsors → `kvntv`; estimates, quotes, invoices for
+BAR → `bar`; anything personal → `owen`. Colors are checked for 4.5:1 contrast on load; a missing brand font
+fails the gate instead of silently falling back.
 
 ## House style (built into the templates — do not fight it)
 

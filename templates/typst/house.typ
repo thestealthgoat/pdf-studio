@@ -14,14 +14,37 @@
   muted: rgb(brand.colors.muted),
   primary: rgb(brand.colors.primary),
   accent: rgb(brand.colors.accent),
+  // text set in the accent color falls back to primary when the accent is below 4.5:1 on paper
+  accent-text: rgb(brand.colors.at("accent_text", default: brand.colors.accent)),
   rule: rgb(brand.colors.rule),
   zebra: rgb(brand.colors.zebra),
   paper: rgb(brand.colors.paper),
   sans: brand.fonts.sans,
   serif: brand.fonts.serif,
+  display: brand.fonts.at("display", default: brand.fonts.sans),
   body: if brand.fonts.body == "sans" { brand.fonts.sans } else { brand.fonts.serif },
-  body-size: if brand.fonts.body == "sans" { 10pt } else { 11pt },
+  body-size: if "body_size" in brand.fonts { brand.fonts.body_size * 1pt } else if brand.fonts.body == "sans" { 10pt } else { 11pt },
 )
+
+// Contact lines from the brand file, skipping empty fields.
+#let contact(brand) = {
+  let lines = brand.at("address", default: ()) + (brand.at("phone", default: ""), brand.at("email", default: ""), brand.at("web", default: ""))
+  lines.filter(l => l != "").join(linebreak())
+}
+
+// Brand lockup: logo (+ name unless the logo is a wordmark that already says it).
+#let lockup(brand, height: 0.42in, name-size: 10pt) = {
+  let k = tokens(brand)
+  let has-logo = brand.at("logo", default: "") != ""
+  let wordmark = brand.at("logo_wordmark", default: false)
+  if has-logo {
+    box(image("/brands/" + brand.logo, height: if wordmark { height * 0.8 } else { height }, alt: brand.name + " logo"))
+    if not wordmark { h(0.12in) }
+  }
+  if not (has-logo and wordmark) {
+    box(baseline: if has-logo { -0.14in } else { 0pt }, text(font: k.sans, size: name-size, weight: "semibold", fill: k.ink, brand.name))
+  }
+}
 
 // Full-width block: breaks out of the measure into the label gutter.
 #let wide(body) = pad(left: -gutter, block(width: 100%, body))
@@ -107,7 +130,7 @@
   show link: it => text(fill: k.primary, it)
   show heading: set block(sticky: true)
   show heading.where(level: 1): it => wide(block(above: 2.1em, below: 0.9em, {
-    set text(font: k.sans, size: 14pt, weight: "semibold", fill: k.primary)
+    set text(font: k.display, size: 14pt, weight: "semibold", fill: k.primary)
     if it.numbering != none { counter(heading).display(it.numbering); h(0.6em) }
     it.body
   }))
@@ -128,19 +151,13 @@
     grid(
       columns: (1fr, auto),
       align: (left + horizon, right + top),
-      {
-        if brand.at("logo", default: "") != "" { box(image("/brands/" + brand.logo, height: 0.42in)); h(0.12in) }
-        box(baseline: -0.14in, text(font: k.sans, size: 10pt, weight: "semibold", fill: k.ink, brand.name))
-      },
-      text(font: k.sans, size: 8.5pt, fill: k.muted, {
-        for line in brand.address { line; linebreak() }
-        brand.phone; linebreak(); brand.email
-      }),
+      lockup(brand),
+      text(font: k.sans, size: 8.5pt, fill: k.muted, contact(brand)),
     )
     v(0.38in)
     label(kind, brand, color: k.primary)
     v(-0.05in)
-    text(font: k.sans, size: 22pt, weight: "semibold", fill: k.ink, title)
+    text(font: k.display, size: 22pt, weight: "semibold", fill: k.ink, title)
     if subtitle != none and subtitle != "" {
       v(-0.12in)
       text(font: k.sans, size: 11pt, fill: k.muted, subtitle)
@@ -202,8 +219,8 @@
 #let sheet-head(brand, kind: "", title: "", facts: ()) = {
   let k = tokens(brand)
   grid(columns: (auto, 1fr, auto), align: (left + horizon, left + horizon, right + horizon), column-gutter: 0.15in,
-    if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.36in) } else { [] },
-    stack(spacing: 3pt, label(kind, brand, color: k.primary), text(font: k.sans, size: 14pt, weight: "semibold", title)),
+    lockup(brand, height: 0.36in),
+    stack(spacing: 3pt, label(kind, brand, color: k.primary), text(font: k.display, size: 14pt, weight: "semibold", title)),
     text(font: k.sans, size: 8.5pt, fill: k.muted, brand.name))
   v(0.06in)
   line(length: 100%, stroke: 0.75pt + k.ink)

@@ -45,7 +45,7 @@
     grid(columns: (1fr, 1.15in), align: (left, right), inset: (x: 5pt, y: 6pt),
       ..rows.enumerate().map(((i, r)) => (if i > 0 { grid.hline(stroke: 0.4pt + k.rule) }, r.at(0), r.at(1))).flatten().filter(x => x != none),
       grid.hline(stroke: 0.75pt + k.ink),
-      text(weight: "semibold")[Balance due (#data.currency)], text(weight: "semibold", fill: k.accent, data.totals.total),
+      text(weight: "semibold")[Balance due (#data.currency)], text(weight: "semibold", fill: k.accent-text, data.totals.total),
       grid.hline(stroke: 0.75pt + k.ink))
   })))
 

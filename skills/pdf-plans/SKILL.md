@@ -40,7 +40,8 @@ pdfcore plans link set.pdf                     # "SEE E-201", "3/E-501", sheet-i
 
 ```bash
 pdfcore plans scale set.pdf --sheet E-301 --scale '1/4"=1'"'"'-0"'      # writes /Measure viewports (other viewers read it)
-pdfcore plans scale set.pdf --sheet E-301 --calibrate x0,y0,x1,y1=16ft  # from a known dimension or scale bar
+pdfcore plans scale set.pdf --sheet E-301 --calibrate x0,y0,x1,y1=16ft  # from a known dimension
+pdfcore plans scale set.pdf --sheet E-301 --calibrate bar               # from the sheet's scale bar
 pdfcore plans measure set.pdf --sheet E-301 --length x0,y0,x1,y1 …      # also --area / --perimeter / --count
 pdfcore plans takeoff set.pdf takeoff.yaml     # totals by type → XLSX
 ```
@@ -50,7 +51,9 @@ State the scale you used and where it came from (title block, scale bar, calibra
 ## Sheets, layers, CAD
 
 ```bash
-pdfcore plans resize set.pdf --to arch-d | ansi-b …     # print to scale; --tile letter for tiled printing
+pdfcore plans sizes set.pdf                             # named sheet size of every page
+pdfcore plans resize set.pdf --to ansi-b [--factor 50%]  # scale kept in /Measure; ARCH D→ANSI B fits (≈46%), not 50%
+pdfcore plans tile set.pdf --paper letter --overlap 0.5in   # tiled printing with crop marks and A1, A2… labels
 pdfcore plans layers set.pdf [--off "NOTES"] [--flatten]
 pdfcore plans dxf2pdf drawing.dxf --size arch-d --lineweights by-layer
 pdfcore plans pdf2dxf set.pdf --sheet E-101             # vector geometry for ProgeCAD

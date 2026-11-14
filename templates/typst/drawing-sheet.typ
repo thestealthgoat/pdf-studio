@@ -33,10 +33,10 @@
       let cell(lbl, val, size: 10pt) = block(width: 100%, inset: 0.08in * s, stroke: (bottom: 0.5pt + k.rule),
         stack(spacing: 3pt * s, small(lbl), text(size: size * s, weight: "semibold", val)))
       block(width: 100%, inset: 0.12in * s, stroke: (bottom: 0.8pt + k.ink), {
-        if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.45in * s); v(0.06in * s) }
+        if brand.at("logo", default: "") != "" { image("/brands/" + brand.logo, height: 0.45in * s, alt: brand.name + " logo"); v(0.06in * s) }
         text(size: 11pt * s, weight: "semibold", brand.name)
         linebreak()
-        text(size: 7.5pt * s, fill: k.muted, brand.address.join(" · "))
+        text(size: 7.5pt * s, fill: k.muted, (brand.at("address", default: ()) + (brand.at("phone", default: ""),)).filter(x => x != "").join(" · "))
       })
       cell("Project", data.project, size: 11pt)
       if data.at("client", default: "") != "" { cell("Client", data.client) }

@@ -521,4 +521,4 @@ def check_standard(path: Path, standard: str) -> list[Finding]:
     if re.search(r"^PASS\b", txt, re.M):
         return []
     first = next((ln for ln in txt.splitlines() if ln.strip()), "veraPDF reported failures")
-    return [Finding("standard", f"not {standard}: {first.strip()[:80]}", None, "run pdfcore standards preflight for the rule list")]
+    return [Finding("standard", f"not {standard}: {first.strip()[:80]}", None, "run pdfcore preflight for the rule list")]

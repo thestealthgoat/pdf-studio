@@ -12,11 +12,12 @@ Make them compliant at creation time (pdf-make): `pdfcore make report data.yaml 
 
 ```bash
 pdfcore gate out.pdf --standard pdfa-2b -v           # runs veraPDF; FAIL lists the first rule broken
-pdfcore preflight out.pdf --standard pdfa-2b         # full rule report (HTML + JSON)
+pdfcore preflight out.pdf --standard pdfa-2b         # full rule report (PDF + JSON)
 ```
 
-Converting an *existing* PDF to PDF/A: `pdfcore pdfa in.pdf` (embeds fonts it can, adds output intent and
-XMP); if veraPDF still fails, say which rules and why — do not claim compliance. PDF/X needs Ghostscript and
+Converting an *existing* PDF to PDF/A: `pdfcore pdfa in.pdf [--level 2b]` (adds output intent and XMP, removes
+forbidden features; it does NOT embed missing fonts — it reports them). If veraPDF still fails, say which rules
+and why — do not claim compliance. PDF/X needs Ghostscript and
 is local-edition only.
 
 ## Signatures

@@ -9,9 +9,8 @@
   // Letterhead (no document-kind title: letters open with the address block)
   wide({
     grid(columns: (1fr, auto), align: (left + horizon, right + top),
-      { if brand.at("logo", default: "") != "" { box(image("/brands/" + brand.logo, height: 0.42in)); h(0.12in) }
-        box(baseline: -0.14in, text(font: k.sans, size: 10pt, weight: "semibold", brand.name)) },
-      text(font: k.sans, size: 8.5pt, fill: k.muted, { for l in brand.address { l; linebreak() }; brand.phone; linebreak(); brand.email }))
+      lockup(brand),
+      text(font: k.sans, size: 8.5pt, fill: k.muted, contact(brand)))
     v(0.6in)
   })
   side("Date", brand, data.date)
