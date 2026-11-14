@@ -38,6 +38,7 @@ class GateOptions:
     min_text_pt: float | None = None  # drawing: minimum text height at print size
     redact_regions: list[tuple[int, Rect]] | None = None
     redact_terms: list[str] | None = None
+    redact_allow: list[str] | None = None  # label text printed on redaction boxes
     standard: str | None = None  # e.g. "pdfa-2b", "pdfua-1"
     png_dir: Path | None = None
     png_dpi: float = 60
@@ -456,8 +457,10 @@ def check_redaction(path: Path, o: GateOptions, password: str | None) -> list[Fi
                 continue
             pg = pdf.pages[pi]
             inner = rect.expand(-0.5)
-            left = [c["text"] for c in pg.chars if inner.contains_point((c["x0"] + c["x1"]) / 2, (c["top"] + c["bottom"]) / 2)]
-            if "".join(left).strip():
+            left = "".join(c["text"] for c in pg.chars if inner.contains_point((c["x0"] + c["x1"]) / 2, (c["top"] + c["bottom"]) / 2))
+            for allow in o.redact_allow or []:
+                left = left.replace(allow, "")
+            if left.strip():
                 out.append(Finding("redaction", f"text still extractable in redacted area: {''.join(left)[:20]!r}", pi, "re-run redact; the area was not scrubbed"))
         if o.redact_terms:
             full = []
@@ -478,6 +481,8 @@ def check_redaction(path: Path, o: GateOptions, password: str | None) -> list[Fi
             H = page.get_height()
             llx, lly, urx, ury = rect.expand(-0.5).to_pdf(H)
             txt = tp.get_text_bounded(left=llx, bottom=lly, right=urx, top=ury)
+            for allow in o.redact_allow or []:
+                txt = txt.replace(allow, "")
             if txt.strip():
                 out.append(Finding("redaction", f"pdfium still reads text in redacted area: {txt.strip()[:20]!r}", pi, "re-run redact"))
         doc.close()

@@ -116,10 +116,8 @@ def search(
         idx = range(len(pdf.pages)) if pages is None else pages
         for pi in idx:
             page = pdf.pages[pi]
-            try:
-                matches = page.search(rx, regex=True, case=case, return_chars=True, return_groups=False)
-            except Exception:
-                continue
+            # The compiled pattern already carries the case flag; pdfplumber refuses case=False with it.
+            matches = page.search(rx, regex=True, case=True, return_chars=True, return_groups=False)
             for m in matches:
                 chars = m.get("chars") or []
                 rects = _line_rects(chars) if chars else [Rect(m["x0"], m["top"], m["x1"], m["bottom"])]
