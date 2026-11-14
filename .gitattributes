@@ -1,0 +1,6 @@
+# Fixtures are compared byte for byte (sha256): never convert line endings.
+*.pdf binary
+*.dwg binary
+*.dxf -text
+*.words.json text eol=lf
+*.schema.json text eol=lf
